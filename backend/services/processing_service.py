@@ -1,39 +1,18 @@
-"""Processing service for handling document/content processing jobs."""
 import base64
 from datetime import datetime, timezone
 from typing import List, Dict, Optional
 
 
 class ProcessingService:
-    """Service for managing processing jobs and items."""
-
     VALID_TYPES = ['text', 'file', 'link']
     VALID_STATUSES = ['pending', 'processing', 'completed', 'failed']
 
     def __init__(self, db_connection):
-        """Initialize the processing service with a database connection.
-
-        Args:
-            db_connection: PostgreSQL database connection
-        """
         self.conn = db_connection
-
     def create_job(self, items: List[Dict]) -> str:
-        """Create a new processing job with items.
-
-        Args:
-            items: List of dictionaries containing 'type', 'content', and 'wage'
-
-        Returns:
-            UUID of the created job
-
-        Raises:
-            ValueError: If items are invalid
-        """
         if not items:
             raise ValueError("Items list cannot be empty")
 
-        # Validate items
         for item in items:
             self._validate_item(item)
 
@@ -70,16 +49,7 @@ class ProcessingService:
             raise e
         finally:
             cur.close()
-
     def get_job_status(self, job_uuid: str) -> Optional[Dict]:
-        """Get the status of a processing job.
-
-        Args:
-            job_uuid: UUID of the job
-
-        Returns:
-            Dictionary containing job status and items, or None if not found
-        """
         cur = self.conn.cursor()
         try:
             # Get job details
@@ -137,15 +107,7 @@ class ProcessingService:
 
         finally:
             cur.close()
-
     def update_job_status(self, job_uuid: str, status: str, error_message: Optional[str] = None):
-        """Update the status of a job.
-
-        Args:
-            job_uuid: UUID of the job
-            status: New status
-            error_message: Optional error message
-        """
         if status not in self.VALID_STATUSES:
             raise ValueError(f"Invalid status: {status}")
 
@@ -169,14 +131,6 @@ class ProcessingService:
     def update_item_status(self, item_id: int, status: str,
                           processed_content: Optional[str] = None,
                           error_message: Optional[str] = None):
-        """Update the status of a processing item.
-
-        Args:
-            item_id: ID of the item
-            status: New status
-            processed_content: Optional processed content
-            error_message: Optional error message
-        """
         if status not in self.VALID_STATUSES:
             raise ValueError(f"Invalid status: {status}")
 
@@ -194,16 +148,7 @@ class ProcessingService:
             self.conn.commit()
         finally:
             cur.close()
-
     def _validate_item(self, item: Dict):
-        """Validate a processing item.
-
-        Args:
-            item: Dictionary containing item data
-
-        Raises:
-            ValueError: If item is invalid
-        """
         if 'type' not in item:
             raise ValueError("Item must have 'type' field")
 
@@ -216,15 +161,12 @@ class ProcessingService:
         if not item['content']:
             raise ValueError("Item content cannot be empty")
 
-        # Validate base64 encoding for file type
         if item['type'] == 'file':
             try:
-                # Try to decode the base64 content to validate it
                 base64.b64decode(item['content'], validate=True)
             except Exception as e:
                 raise ValueError(f"File content must be valid base64 encoded string: {str(e)}")
 
-        # Validate URL format for link type
         if item['type'] == 'link':
             content = item['content'].strip()
             if not (content.startswith('http://') or content.startswith('https://')):

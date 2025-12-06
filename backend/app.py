@@ -3,34 +3,20 @@ from flask_cors import CORS
 import psycopg2
 from pgvector.psycopg2 import register_vector
 import requests
-import os
 from services.processing_service import ProcessingService
+import config
 
 app = Flask(__name__)
 CORS(app)
 
-# Database configuration
-DB_HOST = os.getenv('DB_HOST', 'database')
-DB_PORT = os.getenv('DB_PORT', '5432')
-DB_NAME = os.getenv('DB_NAME', 'hacknation')
-DB_USER = os.getenv('DB_USER', 'postgres')
-DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
-
-# LLM configuration
-LLM_EN_HOST = os.getenv('LLM_EN_HOST', 'llm-en')
-LLM_EN_PORT = os.getenv('LLM_EN_PORT', '11434')
-LLM_PL_HOST = os.getenv('LLM_PL_HOST', 'llm-pl')
-LLM_PL_PORT = os.getenv('LLM_PL_PORT', '11434')
-
 
 def get_db_connection():
-    """Create and return a database connection."""
     conn = psycopg2.connect(
-        host=DB_HOST,
-        port=DB_PORT,
-        database=DB_NAME,
-        user=DB_USER,
-        password=DB_PASSWORD
+        host=config.DB_HOST,
+        port=config.DB_PORT,
+        database=config.DB_NAME,
+        user=config.DB_USER,
+        password=config.DB_PASSWORD
     )
     register_vector(conn)
     return conn
@@ -44,7 +30,6 @@ def health():
 
 @app.route('/api/extract-facts-en', methods=['POST'])
 def extract_facts_en():
-    """Extract facts from English text using the English LLM."""
     data = request.json
     text = data.get('text', '')
     
@@ -52,9 +37,8 @@ def extract_facts_en():
         return jsonify({'error': 'No text provided'}), 400
     
     try:
-        # Call English LLM
         response = requests.post(
-            f'http://{LLM_EN_HOST}:{LLM_EN_PORT}/api/generate',
+            f'http://{config.LLM_EN_HOST}:{config.LLM_EN_PORT}/api/generate',
             json={
                 'model': 'llama2',
                 'prompt': f'Extract key facts from the following text:\n\n{text}\n\nFacts:',
@@ -78,7 +62,6 @@ def extract_facts_en():
 
 @app.route('/api/extract-facts-pl', methods=['POST'])
 def extract_facts_pl():
-    """Extract facts from Polish text using the Polish LLM."""
     data = request.json
     text = data.get('text', '')
     
@@ -86,9 +69,8 @@ def extract_facts_pl():
         return jsonify({'error': 'No text provided'}), 400
     
     try:
-        # Call Polish LLM
         response = requests.post(
-            f'http://{LLM_PL_HOST}:{LLM_PL_PORT}/api/generate',
+            f'http://{config.LLM_PL_HOST}:{config.LLM_PL_PORT}/api/generate',
             json={
                 'model': 'llama2',
                 'prompt': f'Wyodrębnij kluczowe fakty z następującego tekstu:\n\n{text}\n\nFakty:',
@@ -329,10 +311,5 @@ def get_processing_status(job_uuid):
     except Exception as e:
         return jsonify({'error': f'Failed to get job status: {str(e)}'}), 500
 
-
 if __name__ == '__main__':
-    # Debug mode should only be enabled in development
-    # In production, use gunicorn (see Dockerfile)
-    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    port = int(os.getenv('PORT', '8080'))
-    app.run(host='0.0.0.0', port=port, debug=debug_mode)
+    app.run(host='0.0.0.0', port=config.PORT, debug=config.FLASK_DEBUG)
