@@ -48,7 +48,7 @@ status: ## Show status of all services
 
 health: ## Check health of all services
 	@echo "Checking backend health..."
-	@curl -s http://localhost:5000/health || echo "Backend not responding"
+	@curl -s http://localhost:8080/health || echo "Backend not responding"
 	@echo ""
 	@echo "Checking frontend..."
 	@curl -s http://localhost:3000 > /dev/null && echo "Frontend is up" || echo "Frontend not responding"

@@ -67,7 +67,7 @@ echo ""
 
 # Check HTTP endpoints
 check_http "Frontend" "http://localhost:3000"
-check_http "Backend Health" "http://localhost:5000/health"
+check_http "Backend Health" "http://localhost:8080/health"
 
 echo ""
 echo "Checking database connection..."
@@ -90,7 +90,7 @@ if [ "$ALL_RUNNING" = true ]; then
     echo ""
     echo "Access the application at:"
     echo "  Frontend: http://localhost:3000"
-    echo "  Backend:  http://localhost:5000"
+    echo "  Backend:  http://localhost:8080"
     exit 0
 else
     echo -e "${YELLOW}Some services are not healthy${NC}"

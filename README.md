@@ -68,7 +68,7 @@ docker-compose logs -f
 Once all services are running:
 
 - **Frontend (React)**: http://localhost:3000
-- **Backend (Flask API)**: http://localhost:5000
+- **Backend (Flask API)**: http://localhost:8080
 - **Database (PostgreSQL)**: localhost:5432
 - **LLM English**: http://localhost:11434
 - **LLM Polish**: http://localhost:11435
@@ -118,7 +118,7 @@ The backend uses the following environment variables (set in docker-compose.yml)
 - `LLM_PL_PORT`: Polish LLM port (default: `11434`)
 
 #### Frontend (React)
-- `VITE_API_URL`: Backend API URL (default: `http://localhost:5000`)
+- `VITE_API_URL`: Backend API URL (default: `http://localhost:8080`)
 
 To customize, create a `.env` file in the frontend directory based on `.env.example`.
 
@@ -142,7 +142,7 @@ source venv/bin/activate  # On Windows: venv\Scripts\activate
 pip install -r requirements.txt
 python app.py
 ```
-The backend will be available at http://localhost:5000
+The backend will be available at http://localhost:8080
 
 #### Database Only
 ```bash
@@ -167,38 +167,38 @@ docker-compose down -v
 
 - **GET /health** - Health check
   ```bash
-  curl http://localhost:5000/health
+  curl http://localhost:8080/health
   ```
 
 - **POST /api/extract-facts-en** - Extract facts from English text
   ```bash
-  curl -X POST http://localhost:5000/api/extract-facts-en \
+  curl -X POST http://localhost:8080/api/extract-facts-en \
     -H "Content-Type: application/json" \
     -d '{"text": "Your English text here"}'
   ```
 
 - **POST /api/extract-facts-pl** - Extract facts from Polish text
   ```bash
-  curl -X POST http://localhost:5000/api/extract-facts-pl \
+  curl -X POST http://localhost:8080/api/extract-facts-pl \
     -H "Content-Type: application/json" \
     -d '{"text": "Twój polski tekst tutaj"}'
   ```
 
 - **GET /api/facts** - Get all stored facts
   ```bash
-  curl http://localhost:5000/api/facts
+  curl http://localhost:8080/api/facts
   ```
 
 - **POST /api/facts** - Store a fact
   ```bash
-  curl -X POST http://localhost:5000/api/facts \
+  curl -X POST http://localhost:8080/api/facts \
     -H "Content-Type: application/json" \
     -d '{"fact": "Your fact", "language": "en"}'
   ```
 
 - **POST /api/search** - Search for similar facts using vector similarity
   ```bash
-  curl -X POST http://localhost:5000/api/search \
+  curl -X POST http://localhost:8080/api/search \
     -H "Content-Type: application/json" \
     -d '{"embedding": [0.1, 0.2, ...], "limit": 10}'
   ```
@@ -231,7 +231,7 @@ Data persists between container restarts unless you explicitly remove volumes wi
 
 2. **Test the backend health:**
    ```bash
-   curl http://localhost:5000/health
+   curl http://localhost:8080/health
    ```
    Should return: `{"status": "healthy", "service": "backend"}`
 
@@ -263,7 +263,7 @@ docker-compose logs database
 Wait for the message: "database system is ready to accept connections"
 
 #### Port already in use
-If ports 3000, 5000, 5432, 11434, or 11435 are already in use, modify the port mappings in `docker-compose.yml`:
+If ports 3000, 8080, 5432, 11434, or 11435 are already in use, modify the port mappings in `docker-compose.yml`:
 ```yaml
 ports:
   - "NEW_PORT:CONTAINER_PORT"

@@ -66,7 +66,7 @@ make status
 Once all services are running:
 
 1. **Frontend (UI)**: Open http://localhost:3000 in your browser
-2. **Backend API**: http://localhost:5000/health should return `{"status": "healthy"}`
+2. **Backend API**: http://localhost:8080/health should return `{"status": "healthy"}`
 
 ## First Use
 
@@ -133,7 +133,7 @@ If you encounter issues:
 
 1. Check the logs: `docker-compose logs -f`
 2. Verify Docker is running: `docker ps`
-3. Ensure ports are not in use: `netstat -tulpn | grep -E '3000|5000|5432|11434|11435'`
+3. Ensure ports are not in use: `netstat -tulpn | grep -E '3000|8080|5432|11434|11435'`
 4. Create an issue on GitHub with error details
 
 ---
