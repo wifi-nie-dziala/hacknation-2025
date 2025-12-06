@@ -22,21 +22,67 @@ services:
       timeout: 5s
       retries: 5
 
-  # Embedding service
-  embeddings:
-    build:
-      context: ./embedding-service
-      dockerfile: Dockerfile
-    container_name: hacknation-embeddings
+  # English LLM model (Ollama)
+  llm-en:
+    image: ollama/ollama:latest
+    container_name: hacknation-llm-en
     ports:
-      - "5001:5001"
+      - "11434:11434"
+    volumes:
+      - ollama_en_data:/root/.ollama
     networks:
       - hacknation-network
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      test: ["CMD", "ollama", "list"]
       interval: 30s
       timeout: 10s
       retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Pull model on startup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        sleep 10
+        ollama pull llama2
+        wait
+
+  # Polish LLM model (Ollama)
+  llm-pl:
+    image: ollama/ollama:latest
+    container_name: hacknation-llm-pl
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_pl_data:/root/.ollama
+    networks:
+      - hacknation-network
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Pull model on startup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        sleep 10
+        ollama pull llama2
+        wait
 
   # Flask backend
   backend:
@@ -51,6 +97,10 @@ services:
     depends_on:
       database:
         condition: service_healthy
+      llm-en:
+        condition: service_started
+      llm-pl:
+        condition: service_started
     networks:
       - hacknation-network
     healthcheck:
@@ -83,3 +133,7 @@ networks:
 volumes:
   postgres_data:
     name: hacknation-postgres-data
+  ollama_en_data:
+    name: hacknation-ollama-en-data
+  ollama_pl_data:
+    name: hacknation-ollama-pl-data

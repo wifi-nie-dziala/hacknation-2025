@@ -9,7 +9,7 @@ class FactExtractionService:
 
     def extract_facts(self, text: str, language: str = 'en') -> List[str]:
         """Extract facts from text using LLM."""
-        if config.USE_CLOUDFLARE_AI:
+        if config.LLM_PROVIDER == 'cloudflare':
             return self._extract_with_cloudflare(text, language)
         else:
             return self._extract_with_ollama(text, language)
@@ -64,15 +64,12 @@ class FactExtractionService:
 
     def _extract_with_ollama(self, text: str, language: str) -> List[str]:
         """Extract facts using local Ollama LLM."""
-        llm_host = config.LLM_EN_HOST if language == 'en' else config.LLM_PL_HOST
-        llm_port = config.LLM_EN_PORT if language == 'en' else config.LLM_PL_PORT
-
         prompt = self._build_prompt(text, language)
 
         try:
             response = requests.post(
-                f'http://{llm_host}:{llm_port}/api/generate',
-                json={'model': 'llama2', 'prompt': prompt, 'stream': False},
+                f'http://{config.OLLAMA_HOST}:{config.OLLAMA_PORT}/api/generate',
+                json={'model': config.OLLAMA_MODEL, 'prompt': prompt, 'stream': False},
                 timeout=120
             )
 
