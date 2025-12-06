@@ -56,7 +56,9 @@ CREATE TABLE IF NOT EXISTS extracted_facts (
     id SERIAL PRIMARY KEY,
     job_id INTEGER NOT NULL REFERENCES processing_jobs(id) ON DELETE CASCADE,
     step_id INTEGER REFERENCES processing_steps(id) ON DELETE CASCADE,
+    item_id INTEGER REFERENCES processing_items(id) ON DELETE CASCADE,
     fact TEXT NOT NULL,
+    wage DECIMAL(10, 2),
     source_type VARCHAR(20),
     source_content TEXT,
     confidence DECIMAL(3, 2) CHECK (confidence >= 0 AND confidence <= 1),
@@ -86,10 +88,37 @@ CREATE INDEX IF NOT EXISTS processing_items_status_idx ON processing_items (stat
 CREATE INDEX IF NOT EXISTS processing_steps_job_id_idx ON processing_steps (job_id);
 CREATE INDEX IF NOT EXISTS processing_steps_status_idx ON processing_steps (status);
 CREATE INDEX IF NOT EXISTS extracted_facts_job_id_idx ON extracted_facts (job_id);
+CREATE INDEX IF NOT EXISTS extracted_facts_item_id_idx ON extracted_facts (item_id);
 CREATE INDEX IF NOT EXISTS extracted_facts_validated_idx ON extracted_facts (is_validated);
 CREATE INDEX IF NOT EXISTS scraped_data_job_id_idx ON scraped_data (job_id);
 
-TRUNCATE TABLE scraped_data, extracted_facts, processing_steps, processing_items, processing_jobs RESTART IDENTITY CASCADE;
+CREATE TABLE IF NOT EXISTS nodes (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    type VARCHAR(30) NOT NULL CHECK (type IN ('fact', 'prediction', 'missing_information')),
+    value TEXT NOT NULL,
+    job_id INTEGER REFERENCES processing_jobs(id) ON DELETE CASCADE,
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS node_relations (
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
+    source_node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    target_node_id UUID NOT NULL REFERENCES nodes(id) ON DELETE CASCADE,
+    relation_type VARCHAR(50) NOT NULL CHECK (relation_type IN ('derived_from', 'supports', 'contradicts', 'requires', 'suggests')),
+    confidence DECIMAL(3, 2) CHECK (confidence >= 0 AND confidence <= 1),
+    metadata JSONB,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE INDEX IF NOT EXISTS nodes_type_idx ON nodes (type);
+CREATE INDEX IF NOT EXISTS nodes_job_id_idx ON nodes (job_id);
+CREATE INDEX IF NOT EXISTS node_relations_source_idx ON node_relations (source_node_id);
+CREATE INDEX IF NOT EXISTS node_relations_target_idx ON node_relations (target_node_id);
+CREATE INDEX IF NOT EXISTS node_relations_type_idx ON node_relations (relation_type);
+
+TRUNCATE TABLE node_relations, nodes, scraped_data, extracted_facts, processing_steps, processing_items, processing_jobs CASCADE;
 
 INSERT INTO processing_jobs (job_uuid, status, created_at, updated_at)
 VALUES
@@ -165,11 +194,13 @@ VALUES
      '{"error_code": 404}',
      NOW() - INTERVAL '1 hour 50 minutes');
 
-INSERT INTO extracted_facts (job_id, step_id, fact, source_type, source_content, confidence, is_validated, language, metadata, created_at)
+INSERT INTO extracted_facts (job_id, step_id, item_id, fact, wage, source_type, source_content, confidence, is_validated, language, metadata, created_at)
 VALUES
     ((SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
      (SELECT id FROM processing_steps WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND step_number = 2),
+     (SELECT id FROM processing_items WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND item_type = 'link' LIMIT 1),
      'Q4 revenue increased by 15% to $5.2M',
+     120.00,
      'llm_extraction',
      'Financial Report Q4: Revenue $5.2M (up 15%), Operating expenses...',
      0.95,
@@ -179,7 +210,9 @@ VALUES
      NOW() - INTERVAL '40 minutes'),
     ((SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
      (SELECT id FROM processing_steps WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND step_number = 2),
+     (SELECT id FROM processing_items WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND item_type = 'link' LIMIT 1),
      'Operating expenses decreased by 5% to $3.8M',
+     120.00,
      'llm_extraction',
      'Financial Report Q4: Revenue $5.2M (up 15%), Operating expenses $3.8M (down 5%)...',
      0.92,
@@ -189,7 +222,9 @@ VALUES
      NOW() - INTERVAL '40 minutes'),
     ((SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
      (SELECT id FROM processing_steps WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND step_number = 2),
+     (SELECT id FROM processing_items WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND item_type = 'text' LIMIT 1),
      'Net profit margin improved by 3% to 26.9%',
+     200.00,
      'llm_extraction',
      'Financial Report Q4: ...Net profit margin 26.9% (up 3%)...',
      0.90,
@@ -199,7 +234,9 @@ VALUES
      NOW() - INTERVAL '40 minutes'),
     ((SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
      (SELECT id FROM processing_steps WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND step_number = 2),
+     (SELECT id FROM processing_items WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND item_type = 'link' LIMIT 1),
      'Customer acquisition cost decreased by 12%',
+     120.00,
      'llm_extraction',
      'Financial Report Q4: ...Customer acquisition cost decreased by 12%...',
      0.88,
@@ -209,7 +246,9 @@ VALUES
      NOW() - INTERVAL '40 minutes'),
     ((SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
      (SELECT id FROM processing_steps WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND step_number = 2),
+     (SELECT id FROM processing_items WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333') AND item_type = 'file' LIMIT 1),
      'Average revenue per user increased to $245',
+     180.00,
      'llm_extraction',
      'Financial Report Q4: ...Average revenue per user increased to $245.',
      0.91,
@@ -219,7 +258,9 @@ VALUES
      NOW() - INTERVAL '40 minutes'),
     ((SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222'),
      (SELECT id FROM processing_steps WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222') AND step_number = 2),
+     (SELECT id FROM processing_items WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222') AND item_type = 'link' LIMIT 1),
      'Total revenue increased by 18% in Q4',
+     80.00,
      'llm_extraction',
      'Sales Data Analysis Q4: Total revenue increased by 18%...',
      0.85,
@@ -229,7 +270,9 @@ VALUES
      NOW() - INTERVAL '5 minutes'),
     ((SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222'),
      (SELECT id FROM processing_steps WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222') AND step_number = 2),
+     (SELECT id FROM processing_items WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222') AND item_type = 'link' LIMIT 1),
      'New customer acquisition up 25%',
+     80.00,
      'llm_extraction',
      'Sales Data Analysis Q4: ...new customer acquisition up 25%...',
      0.82,
@@ -239,7 +282,9 @@ VALUES
      NOW() - INTERVAL '5 minutes'),
     ((SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222'),
      (SELECT id FROM processing_steps WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222') AND step_number = 2),
+     (SELECT id FROM processing_items WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222') AND item_type = 'text' LIMIT 1),
      'Customer retention rate improved to 89%',
+     100.00,
      'llm_extraction',
      'Sales Data Analysis Q4: ...retention rate improved to 89%.',
      0.87,
@@ -247,4 +292,126 @@ VALUES
      'en',
      '{"category": "sales", "period": "Q4"}',
      NOW() - INTERVAL '5 minutes');
+
+INSERT INTO nodes (type, value, job_id, metadata, created_at, updated_at)
+VALUES
+    ('fact',
+     'Q4 revenue increased by 15% to $5.2M',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
+     '{"category": "financial", "period": "Q4", "confidence": "high"}',
+     NOW() - INTERVAL '35 minutes',
+     NOW() - INTERVAL '35 minutes'),
+    ('fact',
+     'Operating expenses decreased by 5% to $3.8M',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
+     '{"category": "financial", "period": "Q4"}',
+     NOW() - INTERVAL '35 minutes',
+     NOW() - INTERVAL '35 minutes'),
+    ('fact',
+     'Net profit margin improved by 3% to 26.9%',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
+     '{"category": "financial", "period": "Q4", "metric": "profitability"}',
+     NOW() - INTERVAL '35 minutes',
+     NOW() - INTERVAL '35 minutes'),
+    ('prediction',
+     'Q1 2024 revenue will likely exceed $6M based on current growth trend',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
+     '{"confidence_level": "high", "basis": "historical_trend", "period": "Q1 2024"}',
+     NOW() - INTERVAL '30 minutes',
+     NOW() - INTERVAL '30 minutes'),
+    ('prediction',
+     'Profit margin could reach 30% if cost optimization continues',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
+     '{"confidence_level": "medium", "conditional": true}',
+     NOW() - INTERVAL '30 minutes',
+     NOW() - INTERVAL '30 minutes'),
+    ('missing_information',
+     'Customer acquisition cost breakdown by channel',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
+     '{"priority": "high", "needed_for": "marketing_analysis"}',
+     NOW() - INTERVAL '28 minutes',
+     NOW() - INTERVAL '28 minutes'),
+    ('missing_information',
+     'Churn rate details for Q4',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '33333333-3333-3333-3333-333333333333'),
+     '{"priority": "medium", "needed_for": "retention_strategy"}',
+     NOW() - INTERVAL '28 minutes',
+     NOW() - INTERVAL '28 minutes'),
+    ('fact',
+     'Total revenue increased by 18% in Q4',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222'),
+     '{"category": "sales", "period": "Q4"}',
+     NOW() - INTERVAL '4 minutes',
+     NOW() - INTERVAL '4 minutes'),
+    ('fact',
+     'New customer acquisition increased by 25%',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222'),
+     '{"category": "marketing", "period": "Q4"}',
+     NOW() - INTERVAL '4 minutes',
+     NOW() - INTERVAL '4 minutes'),
+    ('prediction',
+     'With continued growth, Q1 sales could reach record highs',
+     (SELECT id FROM processing_jobs WHERE job_uuid = '22222222-2222-2222-2222-222222222222'),
+     '{"confidence_level": "medium", "basis": "trend_analysis"}',
+     NOW() - INTERVAL '3 minutes',
+     NOW() - INTERVAL '3 minutes');
+
+WITH node_ids AS (
+    SELECT id, type, value,
+           ROW_NUMBER() OVER (ORDER BY created_at) as rn
+    FROM nodes
+)
+INSERT INTO node_relations (source_node_id, target_node_id, relation_type, confidence, metadata, created_at)
+VALUES
+    ((SELECT id FROM node_ids WHERE value = 'Q4 revenue increased by 15% to $5.2M'),
+     (SELECT id FROM node_ids WHERE value = 'Q1 2024 revenue will likely exceed $6M based on current growth trend'),
+     'supports', 0.95,
+     '{"reasoning": "Strong Q4 revenue growth indicates upward trend", "analysis_type": "trend"}',
+     NOW() - INTERVAL '29 minutes'),
+    ((SELECT id FROM node_ids WHERE value = 'Operating expenses decreased by 5% to $3.8M'),
+     (SELECT id FROM node_ids WHERE value = 'Profit margin could reach 30% if cost optimization continues'),
+     'supports', 0.85,
+     '{"reasoning": "Continued cost reduction could improve margins", "conditional": true}',
+     NOW() - INTERVAL '29 minutes'),
+    ((SELECT id FROM node_ids WHERE value = 'Net profit margin improved by 3% to 26.9%'),
+     (SELECT id FROM node_ids WHERE value = 'Profit margin could reach 30% if cost optimization continues'),
+     'supports', 0.80,
+     '{"reasoning": "Current margin trend supports further improvement"}',
+     NOW() - INTERVAL '29 minutes'),
+    ((SELECT id FROM node_ids WHERE value = 'Q1 2024 revenue will likely exceed $6M based on current growth trend'),
+     (SELECT id FROM node_ids WHERE value = 'Customer acquisition cost breakdown by channel'),
+     'requires', 0.90,
+     '{"reasoning": "Need CAC data to validate revenue predictions"}',
+     NOW() - INTERVAL '27 minutes'),
+    ((SELECT id FROM node_ids WHERE value = 'Profit margin could reach 30% if cost optimization continues'),
+     (SELECT id FROM node_ids WHERE value = 'Operating expenses decreased by 5% to $3.8M'),
+     'derived_from', 0.88,
+     '{"reasoning": "Margin prediction based on expense reduction trend"}',
+     NOW() - INTERVAL '27 minutes'),
+    ((SELECT id FROM node_ids WHERE value = 'Total revenue increased by 18% in Q4'),
+     (SELECT id FROM node_ids WHERE value = 'With continued growth, Q1 sales could reach record highs'),
+     'supports', 0.75,
+     '{"reasoning": "Q4 revenue growth supports Q1 sales prediction"}',
+     NOW() - INTERVAL '3 minutes'),
+    ((SELECT id FROM node_ids WHERE value = 'New customer acquisition increased by 25%'),
+     (SELECT id FROM node_ids WHERE value = 'With continued growth, Q1 sales could reach record highs'),
+     'supports', 0.70,
+     '{"reasoning": "Customer acquisition growth indicates expanding market"}',
+     NOW() - INTERVAL '3 minutes'),
+    ((SELECT id FROM node_ids WHERE value = 'Q4 revenue increased by 15% to $5.2M'),
+     (SELECT id FROM node_ids WHERE value = 'Total revenue increased by 18% in Q4'),
+     'supports', 0.65,
+     '{"reasoning": "Both indicate strong revenue performance", "cross_job_relation": true}',
+     NOW() - INTERVAL '3 minutes'),
+    ((SELECT id FROM node_ids WHERE value = 'Q1 2024 revenue will likely exceed $6M based on current growth trend'),
+     (SELECT id FROM node_ids WHERE value = 'With continued growth, Q1 sales could reach record highs'),
+     'suggests', 0.60,
+     '{"reasoning": "Similar growth patterns across quarters"}',
+     NOW() - INTERVAL '2 minutes'),
+    ((SELECT id FROM node_ids WHERE value = 'Churn rate details for Q4'),
+     (SELECT id FROM node_ids WHERE value = 'New customer acquisition increased by 25%'),
+     'contradicts', 0.55,
+     '{"reasoning": "High acquisition but missing churn data creates uncertainty", "gap_identified": true}',
+     NOW() - INTERVAL '2 minutes');
+
 

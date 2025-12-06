@@ -3,6 +3,7 @@ from flask_cors import CORS
 import psycopg2
 from pgvector.psycopg2 import register_vector
 from services.processing_service import ProcessingService
+from repositories.node_repository import NodeRepository
 import config
 import threading
 
@@ -101,6 +102,57 @@ def get_all_jobs():
         conn.close()
 
         return jsonify({'jobs': jobs, 'count': len(jobs)}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+@app.route('/api/jobs/<job_uuid>/nodes', methods=['GET'])
+def get_job_nodes(job_uuid):
+    try:
+        node_type = request.args.get('type')
+
+        conn = get_db_connection()
+        node_repo = NodeRepository(conn)
+        nodes = node_repo.get_nodes_by_job(job_uuid, node_type)
+        conn.close()
+
+        return jsonify({'nodes': nodes, 'count': len(nodes)}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/nodes/<node_id>', methods=['GET'])
+def get_node(node_id):
+    try:
+        conn = get_db_connection()
+        node_repo = NodeRepository(conn)
+        node = node_repo.get_node(node_id)
+        conn.close()
+
+        if not node:
+            return jsonify({'error': 'Node not found'}), 404
+
+        return jsonify({'node': node}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
+@app.route('/api/nodes/<node_id>/relations', methods=['GET'])
+def get_node_relations(node_id):
+    try:
+        direction = request.args.get('direction', 'both')
+
+        if direction not in ['incoming', 'outgoing', 'both']:
+            return jsonify({'error': 'Invalid direction. Must be: incoming, outgoing, or both'}), 400
+
+        conn = get_db_connection()
+        node_repo = NodeRepository(conn)
+        relations = node_repo.get_node_relations(node_id, direction)
+        conn.close()
+
+        return jsonify({'relations': relations, 'count': len(relations)}), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
