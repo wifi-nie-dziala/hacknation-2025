@@ -76,17 +76,8 @@ services:
       context: ./backend
       dockerfile: Dockerfile
     container_name: hacknation-backend
-    environment:
-      DB_HOST: database
-      DB_PORT: 5432
-      DB_NAME: hacknation
-      DB_USER: postgres
-      DB_PASSWORD: postgres
-      LLM_EN_HOST: llm-en
-      LLM_EN_PORT: 11434
-      LLM_PL_HOST: llm-pl
-      LLM_PL_PORT: 11434
-      FLASK_DEBUG: "false"
+    env_file:
+      - .env
     ports:
       - "8080:8080"
     volumes:
@@ -114,14 +105,14 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: hacknation-frontend
+    env_file:
+      - .env
     ports:
       - "3000:80"
     depends_on:
       - backend
     networks:
       - hacknation-network
-    environment:
-      VITE_API_URL: http://localhost:8080
 
 networks:
   hacknation-network:

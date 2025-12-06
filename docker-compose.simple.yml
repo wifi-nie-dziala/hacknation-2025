@@ -36,7 +36,7 @@ services:
       dockerfile: Dockerfile
     container_name: hacknation-backend
     env_file:
-      - ./backend/.env
+      - .env
     ports:
       - "8080:8080"
     volumes:
@@ -60,6 +60,8 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
     container_name: hacknation-frontend
+    env_file:
+      - .env
     ports:
       - "3000:80"
     depends_on:
