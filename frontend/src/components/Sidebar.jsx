@@ -10,7 +10,7 @@ export default function Sidebar() {
   useEffect(() => {
     const fetchJobs = async () => {
       try {
-        const res = await fetch('http://localhost:8080/api/processing/jobs');
+        const res = await fetch('http://localhost:8080/api/jobs');
         const data = await res.json();
         setJobs(data.jobs || []);
       } catch (err) {
