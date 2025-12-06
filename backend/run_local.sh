@@ -14,8 +14,6 @@ export PORT=8080
 echo "Installing dependencies..."
 pip install -r requirements.txt
 
-echo "Setting up database..."
-python setup_local_db.py
 
 echo "Starting Flask server on http://localhost:8080"
 python app.py
