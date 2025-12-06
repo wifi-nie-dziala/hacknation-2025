@@ -1,5 +1,7 @@
 import { useNavigate, useParams } from 'react-router-dom';
 import { useState, useEffect } from 'react';
+import ReactFlow, { Background, Controls } from 'reactflow';
+import 'reactflow/dist/style.css';
 
 export default function Dashboard() {
   const navigate = useNavigate();
@@ -138,17 +140,9 @@ export default function Dashboard() {
             </div>
           </div>
 
-          <div className="bg-white rounded-xl shadow-sm p-12">
-            <h3 className="text-2xl font-bold text-gray-900 mb-4">Wyniki Analizy</h3>
-            <div className="border-2 border-dashed border-gray-300 rounded-lg p-16 text-center">
-              <div className="text-gray-400 text-lg">
-                Placeholder na wyniki analizy
-              </div>
-              <div className="text-gray-400 text-sm mt-2">
-                To będzie zawierać szczegółowe wyniki przetwarzania
-              </div>
-            </div>
-          </div>
+          {jobDetails.status === 'completed' && (
+            <AnalysisResults results={jobDetails.results} />
+          )}
         </div>
       </div>
     );
@@ -171,3 +165,204 @@ export default function Dashboard() {
     </div>
   );
 }
+
+const placeholderResults = {
+    "summary": "Analiza wskazuje na duży potencjał wzrostu przy optymalizacji cen, ale istnieje ryzyko nasycenia rynku w dłuższej perspektywie.",
+    "scenarios": [
+      {
+        "timeframe": "12_months",
+        "sentiment": "positive",
+        "description": "W tym scenariuszu zakładamy, że obniżenie cen o 10% przyciągnie nową grupę klientów, co zrekompensuje niższą marżę wolumenem sprzedaży.",
+        "concept_map": {
+          "nodes": [
+            { "id": "n1", "label": "Obniżka cen o 10%", "type": "action" },
+            { "id": "n2", "label": "Wzrost zainteresowania klientów", "type": "effect" },
+            { "id": "n3", "label": "Zwiększenie udziału w rynku", "type": "outcome" }
+          ],
+          "edges": [
+            { "source": "n1", "target": "n2", "relation": "powoduje" },
+            { "source": "n2", "target": "n3", "relation": "prowadzi do" }
+          ]
+        }
+      },
+      {
+        "timeframe": "36_months",
+        "sentiment": "negative",
+        "description": "Długoterminowo konkurencja może skopiować strategię cenową, co doprowadzi do wojny cenowej i spadku rentowności całego sektora.",
+        "concept_map": {
+          "nodes": [
+            { "id": "n1", "label": "Sukces naszej strategii cenowej", "type": "trigger" },
+            { "id": "n2", "label": "Reakcja konkurencji", "type": "reaction" },
+            { "id": "n3", "label": "Wojna cenowa", "type": "risk" },
+            { "id": "n4", "label": "Spadek marży", "type": "outcome" }
+          ],
+          "edges": [
+            { "source": "n1", "target": "n2", "relation": "prowokuje" },
+            { "source": "n2", "target": "n3", "relation": "eskaluje do" },
+            { "source": "n3", "target": "n4", "relation": "skutkuje" }
+          ]
+        }
+      }
+    ]
+  };
+
+function AnalysisResults({ results = placeholderResults }) {
+  const [splitRatios, setSplitRatios] = useState({});
+
+  if (!results) {
+    return (
+      <div className="bg-white rounded-xl shadow-sm p-12">
+        <h3 className="text-2xl font-bold text-gray-900 mb-4">Wyniki Analizy</h3>
+        <div className="border-2 border-dashed border-gray-300 rounded-lg p-16 text-center">
+          <div className="text-gray-400 text-lg">
+            Analiza w trakcie przetwarzania...
+          </div>
+          <div className="text-gray-400 text-sm mt-2">
+            Wyniki pojawią się po zakończeniu analizy
+          </div>
+        </div>
+      </div>
+    );
+  }
+
+  const getSplitRatio = (scenarioId) => {
+    return splitRatios[scenarioId] || 50;
+  };
+
+  const setSplitRatio = (scenarioId, ratio) => {
+    setSplitRatios(prev => ({ ...prev, [scenarioId]: ratio }));
+  };
+
+  return (
+    <div className="bg-white rounded-xl shadow-sm p-8">
+      <h3 className="text-2xl font-bold text-gray-900 mb-6">Wyniki Analizy</h3>
+      
+      {/* Summary */}
+      <div className="mb-8 p-6 bg-blue-50 border border-blue-200 rounded-lg">
+        <h4 className="text-lg font-semibold text-gray-900 mb-2">Podsumowanie</h4>
+        <p className="text-gray-700">{results.summary}</p>
+      </div>
+
+      {/* Scenarios */}
+      <div className="space-y-6">
+        {results.scenarios?.map((scenario, idx) => (
+          <ScenarioCard
+            key={idx}
+            scenario={scenario}
+            splitRatio={getSplitRatio(idx)}
+            onSplitChange={(ratio) => setSplitRatio(idx, ratio)}
+          />
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function ScenarioCard({ scenario, splitRatio, onSplitChange }) {
+  const timeframeLabel = scenario.timeframe === '12_months' ? '12 miesięcy' : '36 miesięcy';
+  const isPositive = scenario.sentiment === 'positive';
+
+  const convertToReactFlow = (conceptMap) => {
+    if (!conceptMap) return { nodes: [], edges: [] };
+
+    const nodes = conceptMap.nodes?.map((node, idx) => ({
+      id: node.id,
+      data: { label: node.label },
+      position: { x: (idx % 3) * 250, y: Math.floor(idx / 3) * 100 },
+      style: {
+        background: node.type === 'action' ? '#DBEAFE' : 
+                    node.type === 'risk' ? '#FEE2E2' : 
+                    node.type === 'outcome' ? '#D1FAE5' : '#F3F4F6',
+        border: '2px solid #94A3B8',
+        borderRadius: '8px',
+        padding: '10px',
+        fontSize: '12px',
+      }
+    })) || [];
+
+    const edges = conceptMap.edges?.map((edge, idx) => ({
+      id: `e${idx}`,
+      source: edge.source,
+      target: edge.target,
+      label: edge.relation,
+      animated: true,
+      style: { stroke: '#64748B' },
+      labelStyle: { fill: '#475569', fontSize: '10px' }
+    })) || [];
+
+    return { nodes, edges };
+  };
+
+  const { nodes, edges } = convertToReactFlow(scenario.concept_map);
+
+  return (
+    <div className="border border-gray-200 rounded-lg p-6">
+      {/* Header with tags */}
+      <div className="flex items-center gap-3 mb-4">
+        <span className="px-3 py-1 bg-gray-100 text-gray-700 rounded-md text-sm font-medium">
+          {timeframeLabel}
+        </span>
+        <span className={`px-3 py-1 rounded-md text-sm font-medium ${
+          isPositive 
+            ? 'bg-green-100 text-green-700 border border-green-300' 
+            : 'bg-red-100 text-red-700 border border-red-300'
+        }`}>
+          {isPositive ? 'Pozytywny' : 'Negatywny'}
+        </span>
+      </div>
+
+      {/* Resizable split view */}
+      <div className="flex gap-4">
+        {/* Description */}
+        <div style={{ width: `${splitRatio}%` }} className="min-w-0">
+          <h5 className="font-semibold text-gray-900 mb-3">Opis scenariusza</h5>
+          <p className="text-gray-700 text-sm leading-relaxed">{scenario.description}</p>
+        </div>
+
+        {/* Resize handle */}
+        <div 
+          className="w-1 bg-gray-300 hover:bg-blue-500 cursor-col-resize rounded transition"
+          onMouseDown={(e) => {
+            const startX = e.clientX;
+            const startRatio = splitRatio;
+            
+            const handleMouseMove = (e) => {
+              const container = e.target.closest('.flex');
+              if (!container) return;
+              const containerWidth = container.offsetWidth;
+              const deltaX = e.clientX - startX;
+              const deltaPercent = (deltaX / containerWidth) * 100;
+              const newRatio = Math.min(Math.max(startRatio + deltaPercent, 20), 80);
+              onSplitChange(newRatio);
+            };
+            
+            const handleMouseUp = () => {
+              document.removeEventListener('mousemove', handleMouseMove);
+              document.removeEventListener('mouseup', handleMouseUp);
+            };
+            
+            document.addEventListener('mousemove', handleMouseMove);
+            document.addEventListener('mouseup', handleMouseUp);
+          }}
+        />
+
+        {/* Diagram */}
+        <div style={{ width: `${100 - splitRatio}%` }} className="min-w-0">
+          <h5 className="font-semibold text-gray-900 mb-3">Mapa koncepcji</h5>
+          <div className="border border-gray-200 rounded-lg" style={{ height: '300px' }}>
+            <ReactFlow
+              nodes={nodes}
+              edges={edges}
+              fitView
+              attributionPosition="bottom-left"
+            >
+              <Background />
+              <Controls />
+            </ReactFlow>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
