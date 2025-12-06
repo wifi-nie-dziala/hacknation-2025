@@ -1,13 +1,47 @@
 import { useNavigate, useLocation } from 'react-router-dom';
+import { useState, useEffect } from 'react';
 
 export default function Sidebar() {
   const navigate = useNavigate();
   const location = useLocation();
-  
-  const analyses = [
-    { id: 1, title: 'Atlantis-Trump-kupuje-kopalnię-w-Polsce', date: '1 grudnia 2025r. godz.12:43' },
-    { id: 2, title: 'Ropa-Rosja', date: '30 listopada 2025r. godz.11:13' }
-  ];
+  const [jobs, setJobs] = useState([]);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchJobs = async () => {
+      try {
+        const res = await fetch('http://localhost:8080/api/processing/jobs');
+        const data = await res.json();
+        setJobs(data.jobs || []);
+      } catch (err) {
+        console.error('Failed to fetch jobs:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchJobs();
+    const interval = setInterval(fetchJobs, 3000);
+    return () => clearInterval(interval);
+  }, []);
+
+  const getStatusBadge = (status) => {
+    const styles = {
+      pending: 'bg-yellow-500/20 text-yellow-300 border-yellow-500/30',
+      processing: 'bg-blue-500/20 text-blue-300 border-blue-500/30',
+      completed: 'bg-green-500/20 text-green-300 border-green-500/30',
+      failed: 'bg-red-500/20 text-red-300 border-red-500/30'
+    };
+    return (
+      <span className={`px-2 py-0.5 rounded text-xs border ${styles[status] || ''}`}>
+        {status}
+      </span>
+    );
+  };
+
+  const formatDate = (dateStr) => {
+    const date = new Date(dateStr);
+    return date.toLocaleDateString('pl-PL', { day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit' });
+  };
 
   return (
     <aside className="w-64 bg-[#1E3A8A] text-white flex flex-col h-screen sticky top-0">
@@ -51,7 +85,7 @@ export default function Sidebar() {
       {/* Previous Analyses Section */}
       <div className="flex-1 overflow-y-auto">
         <div className="px-5 py-4">
-          <h3 className="text-white font-bold text-base mb-3">Wcześniejsze analizy</h3>
+          <h3 className="text-white font-bold text-base mb-3">Processing Jobs</h3>
           
           <button
             onClick={() => navigate('/create')}
@@ -60,36 +94,41 @@ export default function Sidebar() {
             + Nowa analiza
           </button>
 
-          <div className="space-y-2">
-            {analyses.map((analysis) => {
-              const isActive = location.pathname === `/analysis/${analysis.id}`;
-              return (
-                <button
-                  key={analysis.id}
-                  onClick={() => navigate(`/analysis/${analysis.id}`)}
-                  className={`w-full text-left px-3 py-3 rounded-md transition ${
-                    isActive
-                      ? 'bg-white/15 border-l-4 border-blue-400'
-                      : 'hover:bg-white/10'
-                  }`}
-                >
-                  <div className="flex items-start gap-3">
-                    <div className="flex-shrink-0 w-6 h-6 bg-white/20 rounded-full flex items-center justify-center text-xs font-medium">
-                      {analysis.id}
-                    </div>
-                    <div className="flex-1 min-w-0">
-                      <div className="text-white font-medium text-sm truncate">
-                        {analysis.title}
+          {loading ? (
+            <div className="text-white/60 text-sm text-center py-4">Ładowanie...</div>
+          ) : (
+            <div className="space-y-2">
+              {jobs.map((job) => {
+                const isActive = location.pathname === `/analysis/${job.job_uuid}`;
+                return (
+                  <button
+                    key={job.job_uuid}
+                    onClick={() => navigate(`/analysis/${job.job_uuid}`)}
+                    className={`w-full text-left px-3 py-3 rounded-md transition ${
+                      isActive
+                        ? 'bg-white/15 border-l-4 border-blue-400'
+                        : 'hover:bg-white/10'
+                    }`}
+                  >
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between gap-2">
+                        <div className="text-white/40 text-xs font-mono truncate">
+                          {job.job_uuid.substring(0, 8)}...
+                        </div>
+                        {getStatusBadge(job.status)}
                       </div>
-                      <div className="text-white/60 text-xs mt-1">
-                        {analysis.date}
+                      <div className="text-white/60 text-xs">
+                        {job.completed_items}/{job.total_items} items
+                      </div>
+                      <div className="text-white/40 text-xs">
+                        {formatDate(job.created_at)}
                       </div>
                     </div>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
+                  </button>
+                );
+              })}
+            </div>
+          )}
         </div>
       </div>
     </aside>
