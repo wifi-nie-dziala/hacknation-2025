@@ -70,6 +70,22 @@ services:
         ollama pull llama2
         wait
 
+  # Embedding service
+  embeddings:
+    build:
+      context: ./embedding-service
+      dockerfile: Dockerfile
+    container_name: hacknation-embeddings
+    ports:
+      - "5001:5001"
+    networks:
+      - hacknation-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5001/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
   # Flask backend
   backend:
     build:
