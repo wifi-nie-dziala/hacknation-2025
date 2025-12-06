@@ -62,14 +62,10 @@ class ProcessingService:
 
             items = job_status['items']
             
-            # Step 1: Convert all items to text (files, links, text)
-            converted_items = self.content_converter.convert_items_to_text(items)
-            all_content = [item['content'] for item in converted_items if item.get('conversion_success', True)]
-
             # Step 2: Fact Extraction
-            if processing_config.get('enable_fact_extraction') and all_content:
+            if processing_config.get('enable_fact_extraction') and items:
                 fact_ids = self._extract_facts(
-                    job_uuid, all_content, language, step_number
+                    job_uuid, items, language, step_number
                 )
                 step_number += 1
 
@@ -83,30 +79,42 @@ class ProcessingService:
             self.job_service.update_job_status(job_uuid, 'failed', str(e))
             raise
 
-    def _extract_facts(self, job_uuid: str, content_list: list, language: str, step_number: int) -> list:
+    def _extract_facts(self, job_uuid: str, items: list, language: str, step_number: int) -> list:
         """Extract facts from content."""
-        combined_text = ' '.join(content_list)[:10000]
-
         step_id = self.step_service.create_step(
             job_uuid, step_number, 'extraction',
-            {'text_length': len(combined_text)},
+            {'item_count': len(items)},
             {'language': language}
         )
 
         self.step_service.update_step(step_id, 'processing')
-        facts = self.fact_extraction_service.extract_facts(combined_text, language)
 
         fact_ids = []
-        for fact in facts[:20]:
-            fact_id = self.fact_storage_service.store_extracted_fact(
-                job_uuid, step_id, fact, 'llm_extraction',
-                combined_text[:500], 0.7, language
-            )
-            fact_ids.append(fact_id)
+        total_facts = 0
+
+        for item in items:
+            item_id = item['id']
+            wage = item.get('wage')
+
+            converted_items = self.content_converter.convert_items_to_text([item])
+            if not converted_items or not converted_items[0].get('conversion_success', True):
+                continue
+
+            content = converted_items[0]['content'][:10000]
+
+            facts = self.fact_extraction_service.extract_facts(content, language)
+            total_facts += len(facts)
+
+            for fact in facts[:20]:
+                fact_id = self.fact_storage_service.store_extracted_fact(
+                    job_uuid, step_id, fact, 'llm_extraction',
+                    content[:500], item_id, wage, 0.7, language
+                )
+                fact_ids.append(fact_id)
 
         self.step_service.update_step(
             step_id, 'completed',
-            {'facts_extracted': len(facts)}
+            {'facts_extracted': total_facts}
         )
 
         return fact_ids
