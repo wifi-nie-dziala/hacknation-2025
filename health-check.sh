@@ -74,7 +74,8 @@ echo "Checking database connection..."
 echo ""
 
 # Check database
-if docker-compose exec -T database pg_isready -U postgres > /dev/null 2>&1; then
+DB_USER=${POSTGRES_USER:-postgres}
+if docker-compose exec -T database pg_isready -U "$DB_USER" > /dev/null 2>&1; then
     echo -e "${GREEN}✓${NC} Database: Ready"
 else
     echo -e "${RED}✗${NC} Database: Not ready"

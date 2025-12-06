@@ -71,7 +71,11 @@ echo ""
 echo "==================================="
 echo "Service Status:"
 echo "==================================="
-docker-compose ps
+if [ "$COMPOSE_FILE" = "docker-compose.yml" ]; then
+    docker-compose ps
+else
+    docker-compose -f docker-compose.cpu.yml ps
+fi
 
 echo ""
 echo "==================================="
