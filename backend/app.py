@@ -4,6 +4,7 @@ import psycopg2
 from pgvector.psycopg2 import register_vector
 import requests
 import os
+from services.processing_service import ProcessingService
 
 app = Flask(__name__)
 CORS(app)
@@ -216,8 +217,122 @@ def search_facts():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/processing/submit', methods=['POST'])
+def submit_processing_job():
+    """Submit a new processing job with a list of items.
+
+    Expected JSON format:
+    {
+        "items": [
+            {
+                "type": "text|file|link",
+                "content": "text content | base64-encoded file | URL",
+                "wage": 100.50
+            },
+            ...
+        ]
+    }
+
+    Content requirements by type:
+    - text: Plain text string
+    - file: Base64-encoded file content (e.g., PDF)
+    - link: Valid URL starting with http:// or https://
+
+    Returns:
+    {
+        "job_uuid": "uuid-string",
+        "status_url": "/api/processing/status/{uuid}"
+    }
+    """
+    data = request.json
+
+    if not data or 'items' not in data:
+        return jsonify({'error': 'Request must contain "items" field'}), 400
+
+    items = data.get('items', [])
+
+    if not isinstance(items, list):
+        return jsonify({'error': '"items" must be a list'}), 400
+
+    if not items:
+        return jsonify({'error': '"items" list cannot be empty'}), 400
+
+    try:
+        conn = get_db_connection()
+        processing_service = ProcessingService(conn)
+
+        # Create the job
+        job_uuid = processing_service.create_job(items)
+
+        # Close connection
+        conn.close()
+
+        # Return the job UUID and status URL
+        status_url = f'/api/processing/status/{job_uuid}'
+
+        return jsonify({
+            'job_uuid': job_uuid,
+            'status_url': status_url,
+            'message': f'Processing job created successfully with {len(items)} item(s)'
+        }), 201
+
+    except ValueError as e:
+        return jsonify({'error': str(e)}), 400
+    except Exception as e:
+        return jsonify({'error': f'Failed to create processing job: {str(e)}'}), 500
+
+
+@app.route('/api/processing/status/<job_uuid>', methods=['GET'])
+def get_processing_status(job_uuid):
+    """Get the status of a processing job.
+
+    Returns:
+    {
+        "job_uuid": "uuid-string",
+        "status": "pending|processing|completed|failed",
+        "created_at": "ISO timestamp",
+        "updated_at": "ISO timestamp",
+        "completed_at": "ISO timestamp or null",
+        "error_message": "error message or null",
+        "total_items": 5,
+        "completed_items": 3,
+        "failed_items": 0,
+        "items": [
+            {
+                "id": 1,
+                "type": "text",
+                "content": "...",
+                "wage": 100.50,
+                "status": "completed",
+                "processed_content": "...",
+                "error_message": null
+            },
+            ...
+        ]
+    }
+    """
+    try:
+        conn = get_db_connection()
+        processing_service = ProcessingService(conn)
+
+        # Get job status
+        job_status = processing_service.get_job_status(job_uuid)
+
+        # Close connection
+        conn.close()
+
+        if not job_status:
+            return jsonify({'error': 'Job not found'}), 404
+
+        return jsonify(job_status), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to get job status: {str(e)}'}), 500
+
+
 if __name__ == '__main__':
     # Debug mode should only be enabled in development
     # In production, use gunicorn (see Dockerfile)
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(host='0.0.0.0', port=8080, debug=debug_mode)
+    port = int(os.getenv('PORT', '8080'))
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
