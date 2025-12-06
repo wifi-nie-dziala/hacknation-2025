@@ -6,6 +6,8 @@ from .scraper_service import ScraperService
 from .fact_extraction_service import FactExtractionService
 from .fact_storage_service import FactStorageService
 from .content_converter_service import ContentConverterService
+from .reasoning_service import ReasoningService
+from .scenario_service import ScenarioService
 
 
 class ProcessingService:
@@ -19,6 +21,8 @@ class ProcessingService:
         self.fact_extraction_service = FactExtractionService()
         self.fact_storage_service = FactStorageService(db_connection)
         self.content_converter = ContentConverterService()
+        self.reasoning_service = ReasoningService(db_connection)
+        self.scenario_service = ScenarioService(db_connection)
 
     # Delegate to JobService
     def create_job(self, items):
@@ -72,6 +76,17 @@ class ProcessingService:
                 # Step 3: Validation
                 if processing_config.get('enable_validation'):
                     self._validate_facts(job_uuid, fact_ids, step_number)
+                    step_number += 1
+                
+                # Step 4: Reasoning - analyze facts and build knowledge graph
+                if processing_config.get('enable_reasoning'):
+                    self._run_reasoning(job_uuid, step_number)
+                    step_number += 1
+                
+                # Step 5: Scenario generation
+                if processing_config.get('enable_scenarios'):
+                    self._generate_scenarios(job_uuid, step_number)
+                    step_number += 1
 
             self.job_service.update_job_status(job_uuid, 'completed')
 
@@ -136,4 +151,65 @@ class ProcessingService:
             step_id, 'completed',
             {'validated_facts': len(fact_ids)}
         )
+    
+    def _run_reasoning(self, job_uuid: str, step_number: int):
+        """Run LLM reasoning to analyze facts and build knowledge graph."""
+        step_id = self.step_service.create_step(
+            job_uuid, step_number, 'reasoning',
+            {},
+            {'model': 'ollama'}
+        )
+        
+        self.step_service.update_step(step_id, 'processing')
+        
+        try:
+            result = self.reasoning_service.analyze_facts_for_job(job_uuid)
+            
+            self.step_service.update_step(
+                step_id, 'completed',
+                result
+            )
+        except Exception as e:
+            self.step_service.update_step(
+                step_id, 'failed',
+                error_message=str(e)
+            )
+            raise
+    
+    def _generate_scenarios(self, job_uuid: str, step_number: int):
+        """Generate strategic scenarios based on analyzed facts."""
+        step_id = self.step_service.create_step(
+            job_uuid, step_number, 'scenario_generation',
+            {},
+            {'model': 'ollama'}
+        )
+        
+        self.step_service.update_step(step_id, 'processing')
+        
+        try:
+            scenarios = self.scenario_service.generate_scenarios(job_uuid)
+            
+            cur = self.conn.cursor()
+            cur.execute(
+                """
+                UPDATE processing_jobs 
+                SET results = %s
+                WHERE job_uuid = %s
+                """,
+                (scenarios, job_uuid)
+            )
+            self.conn.commit()
+            cur.close()
+            
+            self.step_service.update_step(
+                step_id, 'completed',
+                {'scenarios_generated': len(scenarios.get('scenarios', []))}
+            )
+        except Exception as e:
+            self.step_service.update_step(
+                step_id, 'failed',
+                error_message=str(e)
+            )
+            raise
+
 

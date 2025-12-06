@@ -81,6 +81,8 @@ export default function CreateAnalysisForm() {
             enable_scraping: true,
             enable_fact_extraction: true,
             enable_validation: true,
+            enable_reasoning: true,
+            enable_scenarios: true,
             language: 'en'
           }
         })

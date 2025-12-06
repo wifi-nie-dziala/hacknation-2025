@@ -20,14 +20,14 @@ class FactStorageService:
             cur.execute(
                 """
                 INSERT INTO extracted_facts
-                (job_id, step_id, item_id, fact, wage, source_type, source_content, confidence, language, metadata)
+                (job_id, step_id, fact, source_type, source_content, confidence, language, metadata)
                 VALUES (
                     (SELECT id FROM processing_jobs WHERE job_uuid = %s),
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s
                 )
                 RETURNING id
                 """,
-                (job_uuid, step_id, item_id, fact, wage, source_type, source_content[:1000],
+                (job_uuid, step_id, fact, source_type, source_content[:1000],
                  confidence, language, json.dumps(metadata) if metadata else None)
             )
             fact_id = cur.fetchone()[0]
@@ -74,7 +74,7 @@ class FactStorageService:
         cur = self.conn.cursor()
         try:
             query = """
-                SELECT id, fact, item_id, wage, source_type, confidence, is_validated, language,
+                SELECT id, fact, source_type, confidence, is_validated, language,
                        metadata, created_at
                 FROM extracted_facts
                 WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
@@ -92,14 +92,12 @@ class FactStorageService:
                 {
                     'id': row[0],
                     'fact': row[1],
-                    'item_id': row[2],
-                    'wage': float(row[3]) if row[3] else None,
-                    'source_type': row[4],
-                    'confidence': float(row[5]) if row[5] else None,
-                    'is_validated': row[6],
-                    'language': row[7],
-                    'metadata': row[8],
-                    'created_at': row[9].isoformat() if row[9] else None
+                    'source_type': row[2],
+                    'confidence': float(row[3]) if row[3] else None,
+                    'is_validated': row[4],
+                    'language': row[5],
+                    'metadata': row[6],
+                    'created_at': row[7].isoformat() if row[7] else None
                 }
                 for row in rows
             ]

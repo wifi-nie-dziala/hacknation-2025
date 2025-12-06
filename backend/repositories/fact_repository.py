@@ -10,7 +10,7 @@ class FactRepository:
         try:
             cur.execute(
                 """
-                SELECT id, fact, item_id, wage, source_type, source_content, confidence, 
+                SELECT id, fact, step_id, source_type, source_content, confidence, 
                        is_validated, language, metadata, created_at
                 FROM extracted_facts
                 WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
@@ -23,15 +23,14 @@ class FactRepository:
                 {
                     'id': row[0],
                     'fact': row[1],
-                    'item_id': row[2],
-                    'wage': float(row[3]) if row[3] else None,
-                    'source_type': row[4],
-                    'source_content': row[5],
-                    'confidence': float(row[6]) if row[6] else None,
-                    'is_validated': row[7],
-                    'language': row[8],
-                    'metadata': row[9],
-                    'created_at': row[10].isoformat() if row[10] else None
+                    'step_id': row[2],
+                    'source_type': row[3],
+                    'source_content': row[4],
+                    'confidence': float(row[5]) if row[5] else None,
+                    'is_validated': row[6],
+                    'language': row[7],
+                    'metadata': row[8],
+                    'created_at': row[9].isoformat() if row[9] else None
                 }
                 for row in rows
             ]

@@ -1,0 +1,55 @@
+### Submit job with full processing pipeline
+POST http://localhost:8080/api/submit
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "type": "text",
+      "content": "Q4 revenue increased 15% to $5.2M. Operating costs down 5%. Customer acquisition up 25%.",
+      "wage": 100
+    },
+    {
+      "type": "link",
+      "content": "https://example.com/market-data",
+      "wage": 80
+    }
+  ],
+  "processing": {
+    "language": "en",
+    "enable_fact_extraction": true,
+    "enable_validation": true,
+    "enable_reasoning": true,
+    "enable_scenarios": true
+  }
+}
+
+### Get job with all data (facts, nodes, steps)
+GET http://localhost:8080/api/jobs/11111111-1111-1111-1111-111111111111
+
+### Get scenarios for job
+GET http://localhost:8080/api/jobs/11111111-1111-1111-1111-111111111111/scenarios
+
+### Get nodes by job (all types)
+GET http://localhost:8080/api/jobs/11111111-1111-1111-1111-111111111111/nodes
+
+### Get only predictions
+GET http://localhost:8080/api/jobs/11111111-1111-1111-1111-111111111111/nodes?type=prediction
+
+### Get only facts
+GET http://localhost:8080/api/jobs/11111111-1111-1111-1111-111111111111/nodes?type=fact
+
+### Get only missing info
+GET http://localhost:8080/api/jobs/11111111-1111-1111-1111-111111111111/nodes?type=missing_information
+
+### Get specific node
+GET http://localhost:8080/api/nodes/550e8400-e29b-41d4-a716-446655440000
+
+### Get node relations (both directions)
+GET http://localhost:8080/api/nodes/550e8400-e29b-41d4-a716-446655440000/relations
+
+### Get outgoing relations only
+GET http://localhost:8080/api/nodes/550e8400-e29b-41d4-a716-446655440000/relations?direction=outgoing
+
+### Get incoming relations only
+GET http://localhost:8080/api/nodes/550e8400-e29b-41d4-a716-446655440000/relations?direction=incoming

@@ -77,13 +77,17 @@ def get_job_details(job_uuid):
 
         steps = processing_service.get_job_steps(job_uuid)
         facts = processing_service.get_extracted_facts(job_uuid)
+        
+        node_repo = NodeRepository(conn)
+        nodes = node_repo.get_nodes_by_job(job_uuid)
 
         conn.close()
 
         return jsonify({
             'job': job_status,
             'steps': steps,
-            'facts': facts
+            'facts': facts,
+            'nodes': nodes
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -153,6 +157,35 @@ def get_node_relations(node_id):
         conn.close()
 
         return jsonify({'relations': relations, 'count': len(relations)}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/jobs/<job_uuid>/scenarios', methods=['GET'])
+def get_job_scenarios(job_uuid):
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute(
+            """
+            SELECT results
+            FROM processing_jobs
+            WHERE job_uuid = %s
+            """,
+            (job_uuid,)
+        )
+        
+        row = cur.fetchone()
+        cur.close()
+        conn.close()
+        
+        if not row:
+            return jsonify({'error': 'Job not found'}), 404
+        
+        results = row[0] or {}
+        
+        return jsonify(results), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
 
