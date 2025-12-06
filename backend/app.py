@@ -334,4 +334,5 @@ if __name__ == '__main__':
     # Debug mode should only be enabled in development
     # In production, use gunicorn (see Dockerfile)
     debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
-    app.run(host='0.0.0.0', port=8080, debug=debug_mode)
+    port = int(os.getenv('PORT', '8080'))
+    app.run(host='0.0.0.0', port=port, debug=debug_mode)
