@@ -59,11 +59,29 @@ Content-Type: application/json
   }
 }
 
-### Get all jobs and facts
+### Get all jobs and facts (legacy endpoint)
 GET http://localhost:8080/api/results
 
+### Get all jobs with full associations
+GET http://localhost:8080/api/jobs
+
+### Get all jobs with limit
+GET http://localhost:8080/api/jobs?limit=2
+
+### Get specific job details (sample pending job)
+GET http://localhost:8080/api/jobs/11111111-1111-1111-1111-111111111111
+
+### Get specific job details (sample processing job with steps and facts)
+GET http://localhost:8080/api/jobs/22222222-2222-2222-2222-222222222222
+
+### Get specific job details (sample completed job with all associations)
+GET http://localhost:8080/api/jobs/33333333-3333-3333-3333-333333333333
+
+### Get specific job details (sample failed job)
+GET http://localhost:8080/api/jobs/44444444-4444-4444-4444-444444444444
+
 ### Get specific job details (replace with actual job UUID from submit response)
-GET http://localhost:8080/api/jobs/285ea171-4f91-4310-a13a-b1752664f60a
+GET http://localhost:8080/api/jobs/023b87a7-8492-4a06-83e3-641ef3f56e46
 
 ### Example: Get job details (use a real UUID from your system)
 # GET http://localhost:8080/api/jobs/550e8400-e29b-41d4-a716-446655440000

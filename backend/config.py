@@ -1,7 +1,9 @@
 import os
 from dotenv import load_dotenv
+from pathlib import Path
 
 load_dotenv()
+load_dotenv(Path(__file__).parent.parent / '.env')
 
 # Database
 DB_HOST = os.getenv('DB_HOST', 'database')
