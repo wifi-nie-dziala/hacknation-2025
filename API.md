@@ -59,7 +59,83 @@ Retrieve all processing jobs and extracted facts.
 }
 ```
 
-### 3. Get Job Details
+### 3. Get All Jobs with Full Associations
+**GET** `/api/jobs`
+
+Get all processing jobs with complete associated data including items, steps, scraped data, and extracted facts.
+
+**Query Parameters:**
+- `limit` (optional): Maximum number of jobs to return (default: 100)
+
+**Response:**
+```json
+{
+  "count": 4,
+  "jobs": [
+    {
+      "job_uuid": "uuid",
+      "status": "completed",
+      "created_at": "ISO timestamp",
+      "updated_at": "ISO timestamp",
+      "completed_at": "ISO timestamp or null",
+      "error_message": "error text or null",
+      "total_items": 3,
+      "completed_items": 3,
+      "failed_items": 0,
+      "items": [
+        {
+          "id": 1,
+          "type": "text|link|file",
+          "content": "...",
+          "wage": 100.00,
+          "status": "completed",
+          "processed_content": "...",
+          "error_message": null
+        }
+      ],
+      "steps": [
+        {
+          "id": 1,
+          "step_number": 1,
+          "step_type": "scraping|extraction|validation|embedding",
+          "status": "completed",
+          "input_data": {},
+          "output_data": {},
+          "metadata": {},
+          "created_at": "ISO timestamp",
+          "completed_at": "ISO timestamp"
+        }
+      ],
+      "scraped_data": [
+        {
+          "id": 1,
+          "url": "https://example.com",
+          "content": "scraped text",
+          "content_type": "text/html",
+          "status": "completed",
+          "metadata": {},
+          "created_at": "ISO timestamp"
+        }
+      ],
+      "extracted_facts": [
+        {
+          "id": 1,
+          "fact": "extracted fact text",
+          "source_type": "llm_extraction",
+          "source_content": "...",
+          "confidence": 0.95,
+          "is_validated": true,
+          "language": "en",
+          "metadata": {},
+          "created_at": "ISO timestamp"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 4. Get Job Details
 **GET** `/api/jobs/{job_uuid}`
 
 Get detailed information about a specific job including items, steps, and extracted facts.
@@ -113,8 +189,14 @@ curl -X POST http://localhost:8080/api/submit \
     "processing": {"enable_fact_extraction": true, "language": "en"}
   }'
 
-# Get all results
+# Get all results (legacy)
 curl http://localhost:8080/api/results
+
+# Get all jobs with full associations
+curl http://localhost:8080/api/jobs
+
+# Get all jobs with limit
+curl http://localhost:8080/api/jobs?limit=10
 
 # Get specific job details (replace with actual UUID)
 curl http://localhost:8080/api/jobs/YOUR-JOB-UUID

@@ -1,329 +1,105 @@
 """Job and item management service."""
 import base64
-from datetime import datetime, timezone
 from typing import List, Dict, Optional
+from repositories.job_repository import JobRepository
+from repositories.item_repository import ItemRepository
+from repositories.step_repository import StepRepository
+from repositories.scraped_data_repository import ScrapedDataRepository
+from repositories.fact_repository import FactRepository
 
 
 class JobService:
-    """Handles job and item CRUD operations."""
-
+    """Handles job and item business logic."""
     VALID_TYPES = ['text', 'file', 'link']
     VALID_STATUSES = ['pending', 'processing', 'completed', 'failed']
 
     def __init__(self, db_connection):
         self.conn = db_connection
+        self.job_repo = JobRepository(db_connection)
+        self.item_repo = ItemRepository(db_connection)
+        self.step_repo = StepRepository(db_connection)
+        self.scraped_repo = ScrapedDataRepository(db_connection)
+        self.fact_repo = FactRepository(db_connection)
 
     def create_job(self, items: List[Dict]) -> str:
-        """Create a new processing job with items."""
         if not items:
             raise ValueError("Items list cannot be empty")
-
         for item in items:
             self._validate_item(item)
-
-        cur = self.conn.cursor()
-        try:
-            cur.execute(
-                "INSERT INTO processing_jobs (status) VALUES ('pending') RETURNING job_uuid"
+        job_uuid = self.job_repo.create_job()
+        for item in items:
+            self.item_repo.create_item(
+                job_uuid,
+                item['type'],
+                item['content'],
+                item.get('wage')
             )
-            job_uuid = cur.fetchone()[0]
-
-            for item in items:
-                cur.execute(
-                    """
-                    INSERT INTO processing_items (job_id, item_type, content, wage, status)
-                    VALUES (
-                        (SELECT id FROM processing_jobs WHERE job_uuid = %s),
-                        %s, %s, %s, 'pending'
-                    )
-                    """,
-                    (job_uuid, item['type'], item['content'], item.get('wage'))
-                )
-
-            self.conn.commit()
-            return str(job_uuid)
-
-        except Exception as e:
-            self.conn.rollback()
-            raise e
-        finally:
-            cur.close()
+        return job_uuid
 
     def get_job_status(self, job_uuid: str) -> Optional[Dict]:
-        """Get job status with items."""
-        cur = self.conn.cursor()
-        try:
-            cur.execute(
-                """
-                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message
-                FROM processing_jobs
-                WHERE job_uuid = %s
-                """,
-                (job_uuid,)
-            )
+        job = self.job_repo.get_job_by_uuid(job_uuid)
+        if not job:
+            return None
+        items = self.item_repo.get_items_by_job_uuid(job_uuid)
+        return {
+            **job,
+            'items': items,
+            'total_items': len(items),
+            'completed_items': sum(1 for item in items if item['status'] == 'completed'),
+            'failed_items': sum(1 for item in items if item['status'] == 'failed')
+        }
 
-            job_row = cur.fetchone()
-            if not job_row:
-                return None
-
-            cur.execute(
-                """
-                SELECT id, item_type, content, wage, status, processed_content, error_message
-                FROM processing_items
-                WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
-                ORDER BY id
-                """,
-                (job_uuid,)
-            )
-
-            items_rows = cur.fetchall()
-
-            items = [
-                {
-                    'id': row[0],
-                    'type': row[1],
-                    'content': row[2],
-                    'wage': float(row[3]) if row[3] else None,
-                    'status': row[4],
-                    'processed_content': row[5],
-                    'error_message': row[6]
-                }
-                for row in items_rows
-            ]
-
-            return {
-                'job_uuid': str(job_row[0]),
-                'status': job_row[1],
-                'created_at': job_row[2].isoformat() if job_row[2] else None,
-                'updated_at': job_row[3].isoformat() if job_row[3] else None,
-                'completed_at': job_row[4].isoformat() if job_row[4] else None,
-                'error_message': job_row[5],
+    def get_all_jobs(self, limit: int = 100) -> List[Dict]:
+        jobs = self.job_repo.get_all_jobs(limit)
+        for job in jobs:
+            job_uuid = job['job_uuid']
+            items = self.item_repo.get_items_by_job_uuid(job_uuid)
+            steps = self.step_repo.get_steps_by_job_uuid(job_uuid)
+            scraped_data = self.scraped_repo.get_scraped_data_by_job_uuid(job_uuid)
+            extracted_facts = self.fact_repo.get_facts_by_job_uuid(job_uuid)
+            job.update({
                 'items': items,
+                'steps': steps,
+                'scraped_data': scraped_data,
+                'extracted_facts': extracted_facts,
                 'total_items': len(items),
                 'completed_items': sum(1 for item in items if item['status'] == 'completed'),
                 'failed_items': sum(1 for item in items if item['status'] == 'failed')
-            }
-
-        finally:
-            cur.close()
-
-    def get_all_jobs(self, limit: int = 100) -> List[Dict]:
-        """Get all jobs with full associated data."""
-        cur = self.conn.cursor()
-        try:
-            cur.execute(
-                """
-                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message
-                FROM processing_jobs
-                ORDER BY created_at DESC
-                LIMIT %s
-                """,
-                (limit,)
-            )
-            jobs_rows = cur.fetchall()
-
-            jobs = []
-            for job_row in jobs_rows:
-                job_uuid = str(job_row[0])
-
-                cur.execute(
-                    """
-                    SELECT id, item_type, content, wage, status, processed_content, error_message
-                    FROM processing_items
-                    WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
-                    ORDER BY id
-                    """,
-                    (job_uuid,)
-                )
-                items_rows = cur.fetchall()
-
-                cur.execute(
-                    """
-                    SELECT id, step_number, step_type, status, input_data, output_data, 
-                           error_message, metadata, created_at, completed_at
-                    FROM processing_steps
-                    WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
-                    ORDER BY step_number
-                    """,
-                    (job_uuid,)
-                )
-                steps_rows = cur.fetchall()
-
-                cur.execute(
-                    """
-                    SELECT id, url, content, content_type, status, error_message, metadata, created_at
-                    FROM scraped_data
-                    WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
-                    ORDER BY created_at
-                    """,
-                    (job_uuid,)
-                )
-                scraped_rows = cur.fetchall()
-
-                cur.execute(
-                    """
-                    SELECT id, fact, source_type, source_content, confidence, 
-                           is_validated, language, metadata, created_at
-                    FROM extracted_facts
-                    WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
-                    ORDER BY created_at
-                    """,
-                    (job_uuid,)
-                )
-                facts_rows = cur.fetchall()
-
-                items = [
-                    {
-                        'id': row[0],
-                        'type': row[1],
-                        'content': row[2],
-                        'wage': float(row[3]) if row[3] else None,
-                        'status': row[4],
-                        'processed_content': row[5],
-                        'error_message': row[6]
-                    }
-                    for row in items_rows
-                ]
-
-                steps = [
-                    {
-                        'id': row[0],
-                        'step_number': row[1],
-                        'step_type': row[2],
-                        'status': row[3],
-                        'input_data': row[4],
-                        'output_data': row[5],
-                        'error_message': row[6],
-                        'metadata': row[7],
-                        'created_at': row[8].isoformat() if row[8] else None,
-                        'completed_at': row[9].isoformat() if row[9] else None
-                    }
-                    for row in steps_rows
-                ]
-
-                scraped_data = [
-                    {
-                        'id': row[0],
-                        'url': row[1],
-                        'content': row[2],
-                        'content_type': row[3],
-                        'status': row[4],
-                        'error_message': row[5],
-                        'metadata': row[6],
-                        'created_at': row[7].isoformat() if row[7] else None
-                    }
-                    for row in scraped_rows
-                ]
-
-                extracted_facts = [
-                    {
-                        'id': row[0],
-                        'fact': row[1],
-                        'source_type': row[2],
-                        'source_content': row[3],
-                        'confidence': float(row[4]) if row[4] else None,
-                        'is_validated': row[5],
-                        'language': row[6],
-                        'metadata': row[7],
-                        'created_at': row[8].isoformat() if row[8] else None
-                    }
-                    for row in facts_rows
-                ]
-
-                jobs.append({
-                    'job_uuid': job_uuid,
-                    'status': job_row[1],
-                    'created_at': job_row[2].isoformat() if job_row[2] else None,
-                    'updated_at': job_row[3].isoformat() if job_row[3] else None,
-                    'completed_at': job_row[4].isoformat() if job_row[4] else None,
-                    'error_message': job_row[5],
-                    'items': items,
-                    'steps': steps,
-                    'scraped_data': scraped_data,
-                    'extracted_facts': extracted_facts,
-                    'total_items': len(items),
-                    'completed_items': sum(1 for item in items if item['status'] == 'completed'),
-                    'failed_items': sum(1 for item in items if item['status'] == 'failed')
-                })
-
-            return jobs
-
-        finally:
-            cur.close()
-
+            })
+        return jobs
 
     def update_job_status(self, job_uuid: str, status: str, error_message: Optional[str] = None):
-        """Update job status."""
         if status not in self.VALID_STATUSES:
             raise ValueError(f"Invalid status: {status}")
-
-        cur = self.conn.cursor()
-        try:
-            completed_at = datetime.now(timezone.utc) if status in ['completed', 'failed'] else None
-
-            cur.execute(
-                """
-                UPDATE processing_jobs
-                SET status = %s, updated_at = %s, completed_at = %s, error_message = %s
-                WHERE job_uuid = %s
-                """,
-                (status, datetime.now(timezone.utc), completed_at, error_message, job_uuid)
-            )
-
-            self.conn.commit()
-        finally:
-            cur.close()
+        self.job_repo.update_job_status(job_uuid, status, error_message)
 
     def update_item_status(self, item_id: int, status: str,
-                          processed_content: Optional[str] = None,
-                          error_message: Optional[str] = None):
-        """Update item status."""
+                           processed_content: Optional[str] = None,
+                           error_message: Optional[str] = None):
         if status not in self.VALID_STATUSES:
             raise ValueError(f"Invalid status: {status}")
-
-        cur = self.conn.cursor()
-        try:
-            cur.execute(
-                """
-                UPDATE processing_items
-                SET status = %s, updated_at = %s, processed_content = %s, error_message = %s
-                WHERE id = %s
-                """,
-                (status, datetime.now(timezone.utc), processed_content, error_message, item_id)
-            )
-
-            self.conn.commit()
-        finally:
-            cur.close()
+        self.item_repo.update_item_status(item_id, status, processed_content, error_message)
 
     def _validate_item(self, item: Dict):
-        """Validate item structure and content."""
         if 'type' not in item:
             raise ValueError("Item must have 'type' field")
-
         if item['type'] not in self.VALID_TYPES:
             raise ValueError(f"Invalid type: {item['type']}. Must be one of {self.VALID_TYPES}")
-
         if 'content' not in item:
             raise ValueError("Item must have 'content' field")
-
         if not item['content']:
             raise ValueError("Item content cannot be empty")
-
         if item['type'] == 'file':
             try:
                 base64.b64decode(item['content'], validate=True)
             except Exception as e:
                 raise ValueError(f"File content must be valid base64 encoded string: {str(e)}")
-
         if item['type'] == 'link':
             content = item['content'].strip()
             if not (content.startswith('http://') or content.startswith('https://')):
                 raise ValueError("Link content must be a valid URL starting with http:// or https://")
-
         if 'wage' in item and item['wage'] is not None:
             try:
                 float(item['wage'])
             except (ValueError, TypeError):
                 raise ValueError("Wage must be a valid number")
-
