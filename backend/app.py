@@ -62,48 +62,6 @@ def submit_job():
         return jsonify({'error': str(e)}), 500
 
 
-@app.route('/api/results', methods=['GET'])
-def get_results():
-    try:
-        conn = get_db_connection()
-        cur = conn.cursor()
-
-        cur.execute('''
-            SELECT job_uuid, status, created_at, completed_at
-            FROM processing_jobs
-            ORDER BY created_at DESC
-            LIMIT 100
-        ''')
-        jobs = cur.fetchall()
-
-        cur.execute('''
-            SELECT id, fact, language, created_at
-            FROM facts
-            ORDER BY created_at DESC
-            LIMIT 100
-        ''')
-        facts = cur.fetchall()
-
-        cur.close()
-        conn.close()
-
-        return jsonify({
-            'jobs': [{
-                'job_uuid': str(j[0]),
-                'status': j[1],
-                'created_at': j[2].isoformat() if j[2] else None,
-                'completed_at': j[3].isoformat() if j[3] else None
-            } for j in jobs],
-            'facts': [{
-                'id': f[0],
-                'fact': f[1],
-                'language': f[2],
-                'created_at': f[3].isoformat() if f[3] else None
-            } for f in facts]
-        }), 200
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
 
 @app.route('/api/jobs/<job_uuid>', methods=['GET'])
 def get_job_details(job_uuid):
