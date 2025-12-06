@@ -20,3 +20,4 @@ CREATE INDEX IF NOT EXISTS facts_language_idx ON facts (language);
 
 -- Create index for created_at
 CREATE INDEX IF NOT EXISTS facts_created_at_idx ON facts (created_at DESC);
+
