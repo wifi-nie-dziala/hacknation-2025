@@ -27,7 +27,7 @@ export default function Dashboard() {
       }
     };
     fetchJobDetails();
-    const interval = setInterval(fetchJobDetails, 3000);
+    const interval = setInterval(fetchJobDetails, 5000);
     return () => clearInterval(interval);
   }, [id]);
 
