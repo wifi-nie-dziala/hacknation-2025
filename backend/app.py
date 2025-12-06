@@ -264,6 +264,114 @@ def submit_processing_job():
         return jsonify({'error': f'Failed to create processing job: {str(e)}'}), 500
 
 
+@app.route('/api/processing/jobs', methods=['GET'])
+def get_processing_jobs():
+    """Get list of all processing jobs.
+
+    Query parameters:
+    - status: Filter by status (pending|processing|completed|failed)
+    - limit: Max number of results (default 100)
+    - offset: Pagination offset (default 0)
+
+    Returns:
+    {
+        "jobs": [
+            {
+                "job_uuid": "uuid-string",
+                "status": "pending|processing|completed|failed",
+                "created_at": "ISO timestamp",
+                "updated_at": "ISO timestamp",
+                "completed_at": "ISO timestamp or null",
+                "error_message": "error message or null",
+                "total_items": 5,
+                "completed_items": 3,
+                "failed_items": 0
+            },
+            ...
+        ],
+        "total": 10,
+        "limit": 100,
+        "offset": 0
+    }
+    """
+    status = request.args.get('status', None)
+    limit = int(request.args.get('limit', 100))
+    offset = int(request.args.get('offset', 0))
+
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+
+        if status:
+            count_query = 'SELECT COUNT(*) FROM processing_jobs WHERE status = %s'
+            cur.execute(count_query, (status,))
+        else:
+            count_query = 'SELECT COUNT(*) FROM processing_jobs'
+            cur.execute(count_query)
+
+        total = cur.fetchone()[0]
+
+        if status:
+            query = '''
+                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message
+                FROM processing_jobs
+                WHERE status = %s
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            '''
+            cur.execute(query, (status, limit, offset))
+        else:
+            query = '''
+                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message
+                FROM processing_jobs
+                ORDER BY created_at DESC
+                LIMIT %s OFFSET %s
+            '''
+            cur.execute(query, (limit, offset))
+
+        rows = cur.fetchall()
+
+        jobs = []
+        for row in rows:
+            job_uuid = str(row[0])
+
+            cur.execute('''
+                SELECT 
+                    COUNT(*) as total,
+                    SUM(CASE WHEN status = 'completed' THEN 1 ELSE 0 END) as completed,
+                    SUM(CASE WHEN status = 'failed' THEN 1 ELSE 0 END) as failed
+                FROM processing_items
+                WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
+            ''', (job_uuid,))
+
+            stats = cur.fetchone()
+
+            jobs.append({
+                'job_uuid': job_uuid,
+                'status': row[1],
+                'created_at': row[2].isoformat() if row[2] else None,
+                'updated_at': row[3].isoformat() if row[3] else None,
+                'completed_at': row[4].isoformat() if row[4] else None,
+                'error_message': row[5],
+                'total_items': int(stats[0]) if stats[0] else 0,
+                'completed_items': int(stats[1]) if stats[1] else 0,
+                'failed_items': int(stats[2]) if stats[2] else 0
+            })
+
+        cur.close()
+        conn.close()
+
+        return jsonify({
+            'jobs': jobs,
+            'total': total,
+            'limit': limit,
+            'offset': offset
+        }), 200
+
+    except Exception as e:
+        return jsonify({'error': f'Failed to get jobs: {str(e)}'}), 500
+
+
 @app.route('/api/processing/status/<job_uuid>', methods=['GET'])
 def get_processing_status(job_uuid):
     """Get the status of a processing job.

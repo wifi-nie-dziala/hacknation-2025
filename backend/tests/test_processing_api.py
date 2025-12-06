@@ -80,3 +80,75 @@ def test_get_processing_status_not_found(mock_db, client):
     response = client.get('/api/processing/status/non-existent')
     assert response.status_code == 404
 
+
+@patch('app.get_db_connection')
+def test_get_processing_jobs(mock_db, client):
+    from datetime import datetime
+    mock_conn = Mock()
+    mock_cur = Mock()
+    mock_db.return_value = mock_conn
+    mock_conn.cursor.return_value = mock_cur
+
+    now = datetime.now()
+    mock_cur.fetchone.side_effect = [
+        (2,),
+        (3, 2, 0),
+        (2, 1, 1)
+    ]
+    mock_cur.fetchall.return_value = [
+        ('uuid-1', 'completed', now, now, now, None),
+        ('uuid-2', 'processing', now, now, None, None)
+    ]
+
+    response = client.get('/api/processing/jobs')
+    assert response.status_code == 200
+    data = response.get_json()
+    assert 'jobs' in data
+    assert data['total'] == 2
+    assert len(data['jobs']) == 2
+    assert data['jobs'][0]['job_uuid'] == 'uuid-1'
+    assert data['jobs'][0]['total_items'] == 3
+
+
+@patch('app.get_db_connection')
+def test_get_processing_jobs_with_status_filter(mock_db, client):
+    from datetime import datetime
+    mock_conn = Mock()
+    mock_cur = Mock()
+    mock_db.return_value = mock_conn
+    mock_conn.cursor.return_value = mock_cur
+
+    now = datetime.now()
+    mock_cur.fetchone.side_effect = [(1,), (2, 2, 0)]
+    mock_cur.fetchall.return_value = [
+        ('uuid-1', 'completed', now, now, now, None)
+    ]
+
+    response = client.get('/api/processing/jobs?status=completed')
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['total'] == 1
+    assert data['jobs'][0]['status'] == 'completed'
+
+
+@patch('app.get_db_connection')
+def test_get_processing_jobs_with_pagination(mock_db, client):
+    from datetime import datetime
+    mock_conn = Mock()
+    mock_cur = Mock()
+    mock_db.return_value = mock_conn
+    mock_conn.cursor.return_value = mock_cur
+
+    now = datetime.now()
+    mock_cur.fetchone.side_effect = [(10,), (1, 1, 0)]
+    mock_cur.fetchall.return_value = [
+        ('uuid-5', 'pending', now, now, None, None)
+    ]
+
+    response = client.get('/api/processing/jobs?limit=5&offset=4')
+    assert response.status_code == 200
+    data = response.get_json()
+    assert data['limit'] == 5
+    assert data['offset'] == 4
+    assert data['total'] == 10
+

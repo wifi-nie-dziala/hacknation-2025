@@ -25,7 +25,8 @@ def setup_database():
 
         print(f"Connected to database {DB_NAME}")
 
-        with open('../database/init.sql', 'r') as f:
+        init_sql_path = '../database/init.sql' if os.path.exists('../database/init.sql') else '/database/init.sql'
+        with open(init_sql_path, 'r') as f:
             sql = f.read()
 
         print("Executing init.sql...")
