@@ -9,10 +9,12 @@ help: ## Show this help message
 build: ## Build all Docker images
 	docker-compose build
 
-up: ## Start all services
+up: ## Start all services (always rebuilds backend)
+	docker-compose up -d --build backend
 	docker-compose up -d
 
-up-cpu: ## Start all services (CPU-only version)
+up-cpu: ## Start all services (CPU-only version, always rebuilds backend)
+	docker-compose -f docker-compose.cpu.yml up -d --build backend
 	docker-compose -f docker-compose.cpu.yml up -d
 
 down: ## Stop all services

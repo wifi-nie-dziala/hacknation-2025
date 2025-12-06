@@ -1,2 +1,16 @@
 ### GET request to example server
 GET http://localhost:8080/api/processing/status/11111111-1111-1111-1111-111111111111
+
+### GET all processing jobs
+GET http://localhost:8080/api/processing/jobs
+
+### GET processing jobs with status filter
+GET http://localhost:8080/api/processing/jobs?status=completed
+
+### GET processing jobs with pagination
+GET http://localhost:8080/api/processing/jobs?limit=10&offset=0
+
+### GET processing jobs with all filters
+GET http://localhost:8080/api/processing/jobs?status=pending&limit=5&offset=0
+
+

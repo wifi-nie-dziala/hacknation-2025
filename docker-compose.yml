@@ -103,6 +103,8 @@ services:
       FLASK_DEBUG: "false"
     ports:
       - "8080:8080"
+    volumes:
+      - ./database/init.sql:/database/init.sql
     depends_on:
       database:
         condition: service_healthy
@@ -117,6 +119,8 @@ services:
       interval: 10s
       timeout: 5s
       retries: 5
+    command: >
+      sh -c "python setup_local_db.py && gunicorn --bind 0.0.0.0:8080 --workers 4 --timeout 120 app:app"
 
   # React frontend
   frontend:
