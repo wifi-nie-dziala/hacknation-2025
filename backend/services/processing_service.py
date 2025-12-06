@@ -5,6 +5,7 @@ from .step_service import StepService
 from .scraper_service import ScraperService
 from .fact_extraction_service import FactExtractionService
 from .fact_storage_service import FactStorageService
+from .content_converter_service import ContentConverterService
 
 
 class ProcessingService:
@@ -17,6 +18,7 @@ class ProcessingService:
         self.scraper_service = ScraperService(db_connection)
         self.fact_extraction_service = FactExtractionService()
         self.fact_storage_service = FactStorageService(db_connection)
+        self.content_converter = ContentConverterService()
 
     # Delegate to JobService
     def create_job(self, items):
@@ -56,21 +58,10 @@ class ProcessingService:
                 return
 
             items = job_status['items']
-            all_content = []
-
-            # Step 1: Scraping
-            if processing_config.get('enable_scraping'):
-                all_content.extend(
-                    self._scrape_links(job_uuid, items, step_number)
-                )
-                step_number += len([i for i in items if i['type'] == 'link'])
-
-            # Add text items
-            all_content.extend([
-                item['content']
-                for item in items
-                if item['type'] == 'text'
-            ])
+            
+            # Step 1: Convert all items to text (files, links, text)
+            converted_items = self.content_converter.convert_items_to_text(items)
+            all_content = [item['content'] for item in converted_items if item.get('conversion_success', True)]
 
             # Step 2: Fact Extraction
             if processing_config.get('enable_fact_extraction') and all_content:
@@ -88,36 +79,6 @@ class ProcessingService:
         except Exception as e:
             self.job_service.update_job_status(job_uuid, 'failed', str(e))
             raise
-
-    def _scrape_links(self, job_uuid: str, items: list, step_number: int) -> list:
-        """Scrape all link items."""
-        scraped_content = []
-
-        for item in items:
-            if item['type'] == 'link':
-                step_id = self.step_service.create_step(
-                    job_uuid, step_number, 'scraping',
-                    {'url': item['content']},
-                    {'source': 'link_item'}
-                )
-                step_number += 1
-
-                self.step_service.update_step(step_id, 'processing')
-                result = self.scraper_service.scrape_url(job_uuid, step_id, item['content'])
-
-                if result['success']:
-                    scraped_content.append(result['content'])
-                    self.step_service.update_step(
-                        step_id, 'completed',
-                        {'scraped_length': len(result['content'])}
-                    )
-                else:
-                    self.step_service.update_step(
-                        step_id, 'failed',
-                        error_message=result['error']
-                    )
-
-        return scraped_content
 
     def _extract_facts(self, job_uuid: str, content_list: list, language: str, step_number: int) -> list:
         """Extract facts from content."""

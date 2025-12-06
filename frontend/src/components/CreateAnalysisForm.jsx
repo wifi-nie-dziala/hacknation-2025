@@ -12,6 +12,7 @@ export default function CreateAnalysisForm() {
   const [negativeScenario, setNegativeScenario] = useState(true);
   const [sourceScope, setSourceScope] = useState('added');
   const [sources, setSources] = useState([]);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleCancel = () => {
     navigate('/');
@@ -21,7 +22,19 @@ export default function CreateAnalysisForm() {
     console.log('Zapisano jako szkic');
   };
 
-  const handleRunAnalysis = () => {
+  const convertFileToBase64 = (file) => {
+    return new Promise((resolve, reject) => {
+      const reader = new FileReader();
+      reader.onload = () => {
+        const base64 = reader.result.split(',')[1];
+        resolve(base64);
+      };
+      reader.onerror = reject;
+      reader.readAsDataURL(file);
+    });
+  };
+
+  const handleRunAnalysis = async () => {
     if (!timeHorizon12 && !timeHorizon36) {
       alert('Wybierz co najmniej jeden horyzont czasowy');
       return;
@@ -30,15 +43,62 @@ export default function CreateAnalysisForm() {
       alert('Wybierz co najmniej jeden wariant scenariusza');
       return;
     }
-    console.log('Uruchomiono analizę', { 
-      analysisName, 
-      country, 
-      timeHorizon: { twelve: timeHorizon12, thirtySix: timeHorizon36 },
-      positiveScenario, 
-      negativeScenario,
-      sourceScope,
-      sources
-    });
+
+    setIsSubmitting(true);
+
+    try {
+      const items = await Promise.all(sources.map(async (source) => {
+        if (source.type === 'text') {
+          return {
+            type: 'text',
+            content: source.description,
+            wage: source.weight
+          };
+        } else if (source.type === 'link') {
+          return {
+            type: 'link',
+            content: source.name,
+            wage: source.weight
+          };
+        } else if (source.type === 'file' || source.type === 'image') {
+          const base64Content = await convertFileToBase64(source.file);
+          return {
+            type: 'file',
+            content: base64Content,
+            wage: source.weight
+          };
+        }
+      }));
+
+      const response = await fetch('http://localhost:8080/api/submit', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          items,
+          processing: {
+            enable_scraping: true,
+            enable_fact_extraction: true,
+            enable_validation: true,
+            language: 'en'
+          }
+        })
+      });
+
+      const data = await response.json();
+
+      if (response.ok) {
+        navigate(`/analysis/${data.job_uuid}`);
+      } else {
+        alert(`Błąd: ${data.error}`);
+        setIsSubmitting(false);
+      }
+    } catch (error) {
+      console.error('Error submitting analysis:', error);
+      alert('Wystąpił błąd podczas wysyłania analizy');
+      setIsSubmitting(false);
+    }
   };
 
   const addSource = (type, file = null) => {
@@ -226,13 +286,6 @@ export default function CreateAnalysisForm() {
             </button>
             <button
               type="button"
-              onClick={() => handleFileInput('image')}
-              className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition flex items-center gap-2"
-            >
-              <Image className="w-4 h-4" />+ Obraz
-            </button>
-            <button
-              type="button"
               onClick={() => addSource('text')}
               className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition flex items-center gap-2"
             >
@@ -408,9 +461,10 @@ export default function CreateAnalysisForm() {
         <button
           type="button"
           onClick={handleRunAnalysis}
-          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+          disabled={isSubmitting}
+          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition disabled:opacity-50 disabled:cursor-not-allowed"
         >
-          Uruchom analizę
+          {isSubmitting ? 'Wysyłanie...' : 'Uruchom analizę'}
         </button>
       </div>
     </div>

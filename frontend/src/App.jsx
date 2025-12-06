@@ -2,6 +2,7 @@ import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
 import Sidebar from './components/Sidebar';
 import Dashboard from './components/Dashboard';
 import CreateAnalysisForm from './components/CreateAnalysisForm';
+import AnalysisResults from './components/AnalysisResults';
 
 function App() {
   return (
@@ -12,7 +13,7 @@ function App() {
           <Routes>
             <Route path="/" element={<Dashboard />} />
             <Route path="/create" element={<CreateAnalysisForm />} />
-            <Route path="/analysis/:id" element={<Dashboard />} />
+            <Route path="/analysis/:id" element={<AnalysisResults />} />
           </Routes>
         </main>
       </div>
