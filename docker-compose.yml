@@ -1,0 +1,146 @@
+version: '3.8'
+
+services:
+  # PostgreSQL database with pgvector extension
+  database:
+    image: pgvector/pgvector:pg16
+    container_name: hacknation-database
+    environment:
+      POSTGRES_DB: hacknation
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: postgres
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./database/init.sql:/docker-entrypoint-initdb.d/init.sql
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - hacknation-network
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # English LLM model (Ollama)
+  llm-en:
+    image: ollama/ollama:latest
+    container_name: hacknation-llm-en
+    ports:
+      - "11434:11434"
+    volumes:
+      - ollama_en_data:/root/.ollama
+    networks:
+      - hacknation-network
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Pull model on startup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        sleep 10
+        ollama pull llama2
+        wait
+
+  # Polish LLM model (Ollama)
+  llm-pl:
+    image: ollama/ollama:latest
+    container_name: hacknation-llm-pl
+    ports:
+      - "11435:11434"
+    volumes:
+      - ollama_pl_data:/root/.ollama
+    networks:
+      - hacknation-network
+    healthcheck:
+      test: ["CMD", "ollama", "list"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all
+              capabilities: [gpu]
+    # Pull model on startup
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        ollama serve &
+        sleep 10
+        ollama pull llama2
+        wait
+
+  # Flask backend
+  backend:
+    build:
+      context: ./backend
+      dockerfile: Dockerfile
+    container_name: hacknation-backend
+    environment:
+      DB_HOST: database
+      DB_PORT: 5432
+      DB_NAME: hacknation
+      DB_USER: postgres
+      DB_PASSWORD: postgres
+      LLM_EN_HOST: llm-en
+      LLM_EN_PORT: 11434
+      LLM_PL_HOST: llm-pl
+      LLM_PL_PORT: 11434
+    ports:
+      - "5000:5000"
+    depends_on:
+      database:
+        condition: service_healthy
+      llm-en:
+        condition: service_started
+      llm-pl:
+        condition: service_started
+    networks:
+      - hacknation-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:5000/health"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  # React frontend
+  frontend:
+    build:
+      context: ./frontend
+      dockerfile: Dockerfile
+    container_name: hacknation-frontend
+    ports:
+      - "3000:80"
+    depends_on:
+      - backend
+    networks:
+      - hacknation-network
+    environment:
+      VITE_API_URL: http://localhost:5000
+
+networks:
+  hacknation-network:
+    driver: bridge
+    name: hacknation-network
+
+volumes:
+  postgres_data:
+    name: hacknation-postgres-data
+  ollama_en_data:
+    name: hacknation-ollama-en-data
+  ollama_pl_data:
+    name: hacknation-ollama-pl-data
