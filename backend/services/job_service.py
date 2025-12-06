@@ -1,11 +1,12 @@
 """Job and item management service."""
 import base64
 from typing import List, Dict, Optional
-from repositories.job_repository import JobRepository
-from repositories.item_repository import ItemRepository
-from repositories.step_repository import StepRepository
-from repositories.scraped_data_repository import ScrapedDataRepository
+
 from repositories.fact_repository import FactRepository
+from repositories.item_repository import ItemRepository
+from repositories.job_repository import JobRepository
+from repositories.scraped_data_repository import ScrapedDataRepository
+from repositories.step_repository import StepRepository
 
 
 class JobService:
