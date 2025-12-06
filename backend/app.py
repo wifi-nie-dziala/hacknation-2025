@@ -1,0 +1,223 @@
+from flask import Flask, jsonify, request
+from flask_cors import CORS
+import psycopg2
+from pgvector.psycopg2 import register_vector
+import requests
+import os
+
+app = Flask(__name__)
+CORS(app)
+
+# Database configuration
+DB_HOST = os.getenv('DB_HOST', 'database')
+DB_PORT = os.getenv('DB_PORT', '5432')
+DB_NAME = os.getenv('DB_NAME', 'hacknation')
+DB_USER = os.getenv('DB_USER', 'postgres')
+DB_PASSWORD = os.getenv('DB_PASSWORD', 'postgres')
+
+# LLM configuration
+LLM_EN_HOST = os.getenv('LLM_EN_HOST', 'llm-en')
+LLM_EN_PORT = os.getenv('LLM_EN_PORT', '11434')
+LLM_PL_HOST = os.getenv('LLM_PL_HOST', 'llm-pl')
+LLM_PL_PORT = os.getenv('LLM_PL_PORT', '11434')
+
+
+def get_db_connection():
+    """Create and return a database connection."""
+    conn = psycopg2.connect(
+        host=DB_HOST,
+        port=DB_PORT,
+        database=DB_NAME,
+        user=DB_USER,
+        password=DB_PASSWORD
+    )
+    register_vector(conn)
+    return conn
+
+
+@app.route('/health', methods=['GET'])
+def health():
+    """Health check endpoint."""
+    return jsonify({'status': 'healthy', 'service': 'backend'}), 200
+
+
+@app.route('/api/extract-facts-en', methods=['POST'])
+def extract_facts_en():
+    """Extract facts from English text using the English LLM."""
+    data = request.json
+    text = data.get('text', '')
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    try:
+        # Call English LLM
+        response = requests.post(
+            f'http://{LLM_EN_HOST}:{LLM_EN_PORT}/api/generate',
+            json={
+                'model': 'llama2',
+                'prompt': f'Extract key facts from the following text:\n\n{text}\n\nFacts:',
+                'stream': False
+            },
+            timeout=120
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return jsonify({
+                'facts': result.get('response', ''),
+                'language': 'en'
+            }), 200
+        else:
+            return jsonify({'error': 'LLM request failed'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/extract-facts-pl', methods=['POST'])
+def extract_facts_pl():
+    """Extract facts from Polish text using the Polish LLM."""
+    data = request.json
+    text = data.get('text', '')
+    
+    if not text:
+        return jsonify({'error': 'No text provided'}), 400
+    
+    try:
+        # Call Polish LLM
+        response = requests.post(
+            f'http://{LLM_PL_HOST}:{LLM_PL_PORT}/api/generate',
+            json={
+                'model': 'llama2',
+                'prompt': f'Wyodrębnij kluczowe fakty z następującego tekstu:\n\n{text}\n\nFakty:',
+                'stream': False
+            },
+            timeout=120
+        )
+        
+        if response.status_code == 200:
+            result = response.json()
+            return jsonify({
+                'facts': result.get('response', ''),
+                'language': 'pl'
+            }), 200
+        else:
+            return jsonify({'error': 'LLM request failed'}), 500
+            
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/facts', methods=['GET', 'POST'])
+def facts():
+    """Get or store facts in the vector database."""
+    if request.method == 'GET':
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            cur.execute('SELECT id, fact, language, created_at FROM facts ORDER BY created_at DESC LIMIT 100')
+            rows = cur.fetchall()
+            cur.close()
+            conn.close()
+            
+            facts_list = [
+                {
+                    'id': row[0],
+                    'fact': row[1],
+                    'language': row[2],
+                    'created_at': row[3].isoformat() if row[3] else None
+                }
+                for row in rows
+            ]
+            
+            return jsonify({'facts': facts_list}), 200
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+            
+    elif request.method == 'POST':
+        data = request.json
+        fact = data.get('fact', '')
+        language = data.get('language', 'en')
+        embedding = data.get('embedding', None)
+        
+        if not fact:
+            return jsonify({'error': 'No fact provided'}), 400
+        
+        try:
+            conn = get_db_connection()
+            cur = conn.cursor()
+            
+            if embedding:
+                cur.execute(
+                    'INSERT INTO facts (fact, language, embedding) VALUES (%s, %s, %s) RETURNING id',
+                    (fact, language, embedding)
+                )
+            else:
+                cur.execute(
+                    'INSERT INTO facts (fact, language) VALUES (%s, %s) RETURNING id',
+                    (fact, language)
+                )
+            
+            fact_id = cur.fetchone()[0]
+            conn.commit()
+            cur.close()
+            conn.close()
+            
+            return jsonify({'id': fact_id, 'message': 'Fact stored successfully'}), 201
+            
+        except Exception as e:
+            return jsonify({'error': str(e)}), 500
+
+
+@app.route('/api/search', methods=['POST'])
+def search_facts():
+    """Search for similar facts using vector similarity."""
+    data = request.json
+    query_embedding = data.get('embedding', None)
+    limit = data.get('limit', 10)
+    
+    if not query_embedding:
+        return jsonify({'error': 'No embedding provided'}), 400
+    
+    try:
+        conn = get_db_connection()
+        cur = conn.cursor()
+        
+        cur.execute(
+            '''
+            SELECT id, fact, language, embedding <-> %s AS distance
+            FROM facts
+            WHERE embedding IS NOT NULL
+            ORDER BY distance
+            LIMIT %s
+            ''',
+            (query_embedding, limit)
+        )
+        
+        rows = cur.fetchall()
+        cur.close()
+        conn.close()
+        
+        results = [
+            {
+                'id': row[0],
+                'fact': row[1],
+                'language': row[2],
+                'distance': float(row[3])
+            }
+            for row in rows
+        ]
+        
+        return jsonify({'results': results}), 200
+        
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+if __name__ == '__main__':
+    # Debug mode should only be enabled in development
+    # In production, use gunicorn (see Dockerfile)
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=8080, debug=debug_mode)
