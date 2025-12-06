@@ -1,23 +1,45 @@
 @import "tailwindcss";
 
+:root {
+  /* Sidebar */
+  --sidebar-bg: #1E3A8A;
+  --sidebar-text: #FFFFFF;
+  --sidebar-text-muted: rgba(255, 255, 255, 0.6);
+  --sidebar-hover: rgba(255, 255, 255, 0.1);
+  --sidebar-active: rgba(255, 255, 255, 0.15);
+  
+  /* Main */
+  --main-bg: #E5E7EB;
+  --card-bg: #FFFFFF;
+  --text-primary: #111827;
+  --text-secondary: #6B7280;
+  
+  /* Akcenty */
+  --primary: #3B82F6;
+  --primary-light: #DBEAFE;
+  --primary-dark: #2563EB;
+  
+  /* Bordery */
+  --border: #D1D5DB;
+  --border-light: #E5E7EB;
+}
+
+* {
+  box-sizing: border-box;
+}
+
 body {
   margin: 0;
   font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-}
-button:focus,
-button:focus-visible {
-  outline: 4px auto -webkit-focus-ring-color;
+  background-color: var(--main-bg);
+  color: var(--text-primary);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
 }
 
-@media (prefers-color-scheme: light) {
-  :root {
-    color: #213547;
-    background-color: #ffffff;
-  }
-  a:hover {
-    color: #747bff;
-  }
-  button {
-    background-color: #f9f9f9;
+@media (max-width: 768px) {
+  .sidebar {
+    display: none;
   }
 }
+
