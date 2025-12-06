@@ -13,6 +13,8 @@ This is a monorepo containing:
 
 All services are containerized with Docker and communicate through a shared Docker network.
 
+📊 **[View detailed architecture diagram](ARCHITECTURE.md)**
+
 ## 📋 Prerequisites
 
 Before running this project, ensure you have the following installed:
@@ -244,31 +246,35 @@ Data persists between container restarts unless you explicitly remove volumes wi
 
 ## ⚠️ Troubleshooting
 
-### LLM models are slow or timing out
+For common issues and solutions, see the **[Troubleshooting Guide](TROUBLESHOOTING.md)**.
+
+### Quick diagnostics
+
+#### LLM models are slow or timing out
 - LLM models require significant resources
 - First request may take 30-60 seconds while the model loads
 - For CPU-only systems, responses can take 1-2 minutes
 - Consider using a GPU for better performance
 
-### Database connection errors
+#### Database connection errors
 ```bash
 docker-compose logs database
 ```
 Wait for the message: "database system is ready to accept connections"
 
-### Port already in use
+#### Port already in use
 If ports 3000, 5000, 5432, 11434, or 11435 are already in use, modify the port mappings in `docker-compose.yml`:
 ```yaml
 ports:
   - "NEW_PORT:CONTAINER_PORT"
 ```
 
-### Out of memory errors
+#### Out of memory errors
 - Ensure you have at least 8GB of free RAM
 - Reduce the number of running services
 - Consider closing other applications
 
-### Checking logs
+#### Checking logs
 ```bash
 # All services
 docker-compose logs -f
