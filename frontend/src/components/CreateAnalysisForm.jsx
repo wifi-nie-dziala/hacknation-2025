@@ -1,194 +1,417 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { Link2, Image, FileText, Paperclip, Eye, Trash2 } from 'lucide-react';
 
 export default function CreateAnalysisForm() {
   const navigate = useNavigate();
-  const [name, setName] = useState('');
-  const [country, setCountry] = useState('');
-  const [timeHorizon, setTimeHorizon] = useState({ twelve: false, thirtySix: false });
-  const [scenario, setScenario] = useState({ positive: false, negative: false });
-  const [textSources, setTextSources] = useState(['', '']);
-  const [files, setFiles] = useState([]);
+  const [analysisName, setAnalysisName] = useState('');
+  const [country, setCountry] = useState('Atlantis');
+  const [timeHorizon12, setTimeHorizon12] = useState(true);
+  const [timeHorizon36, setTimeHorizon36] = useState(false);
+  const [positiveScenario, setPositiveScenario] = useState(true);
+  const [negativeScenario, setNegativeScenario] = useState(true);
+  const [sourceScope, setSourceScope] = useState('added');
+  const [sources, setSources] = useState([]);
 
-  const isFormValid = name && (files.length > 0 || textSources.some(t => t.trim()));
-
-  const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!isFormValid) return;
-    console.log({ name, country, timeHorizon, scenario, textSources, files });
+  const handleCancel = () => {
+    navigate('/');
   };
 
-  const handleFileUpload = (e) => {
-    setFiles([...files, ...Array.from(e.target.files)]);
+  const handleSaveDraft = () => {
+    console.log('Zapisano jako szkic');
   };
 
-  const addTextSource = () => {
-    setTextSources([...textSources, '']);
+  const handleRunAnalysis = () => {
+    if (!timeHorizon12 && !timeHorizon36) {
+      alert('Wybierz co najmniej jeden horyzont czasowy');
+      return;
+    }
+    if (!positiveScenario && !negativeScenario) {
+      alert('Wybierz co najmniej jeden wariant scenariusza');
+      return;
+    }
+    console.log('Uruchomiono analizę', { 
+      analysisName, 
+      country, 
+      timeHorizon: { twelve: timeHorizon12, thirtySix: timeHorizon36 },
+      positiveScenario, 
+      negativeScenario,
+      sourceScope,
+      sources
+    });
+  };
+
+  const addSource = (type, file = null) => {
+    const newSource = {
+      id: Date.now().toString(),
+      type,
+      name: file ? file.name : (type === 'link' ? 'https://' : ''),
+      file: file,
+      description: '',
+      weight: 50
+    };
+    setSources([...sources, newSource]);
+  };
+
+  const handleFileInput = (type) => {
+    const input = document.createElement('input');
+    input.type = 'file';
+    input.accept = type === 'image' ? 'image/*' : '*/*';
+    input.onchange = (e) => {
+      const file = e.target.files[0];
+      if (file) {
+        addSource(type, file);
+      }
+    };
+    input.click();
+  };
+
+  const updateSourceName = (id, name) => {
+    setSources(sources.map(s => s.id === id ? { ...s, name } : s));
+  };
+
+  const updateSourceWeight = (id, weight) => {
+    setSources(sources.map(s => s.id === id ? { ...s, weight } : s));
+  };
+
+  const updateSourceDescription = (id, description) => {
+    setSources(sources.map(s => s.id === id ? { ...s, description } : s));
+  };
+
+  const deleteSource = (id) => {
+    setSources(sources.filter(s => s.id !== id));
+  };
+
+  const sourceIcons = {
+    link: Link2,
+    image: Image,
+    text: FileText,
+    file: Paperclip,
   };
 
   return (
-    <div className="px-16 py-10">
-      <div className="max-w-4xl mx-auto">
-        <div className="bg-white rounded-xl shadow-sm p-12">
-          <h1 className="text-3xl font-bold text-gray-900 mb-2">Przeprowadź nową analizę</h1>
-          <p className="text-gray-500 text-base mb-10">Wypełnij formularz aby rozpocząć</p>
+    <div className="max-w-5xl mx-auto px-8 py-12">
+      {/* Page Header */}
+      <div className="mb-10">
+        <h1 className="text-3xl font-bold text-gray-900 mb-3">Nowa analiza scenariuszy</h1>
+        <p className="text-gray-600 max-w-3xl">
+          Wybierz parametry analizy i dodaj źródła, na podstawie których system
+          przygotuje scenariusze dla państwa Atlantis.
+        </p>
+      </div>
 
-          <form onSubmit={handleSubmit} className="space-y-10">
-            {/* Section 1: Basic Data */}
-            <div>
-              <h2 className="text-xl font-bold text-gray-900 mb-6 pb-2 border-t-2 border-gray-200 pt-6">
-                Podstawowe dane
-              </h2>
-              
-              <div className="space-y-5">
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Dodaj nazwę</label>
-                  <input
-                    type="text"
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                    placeholder="Nazwa analizy"
-                  />
-                </div>
+      {/* Sections */}
+      <div className="space-y-6">
+        {/* Basic Parameters Section */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-6">Podstawowe parametry analizy</h2>
 
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-2">Państwo</label>
-                  <select
-                    value={country}
-                    onChange={(e) => setCountry(e.target.value)}
-                    className="w-full px-4 py-3 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
-                  >
-                    <option value="">Wybierz państwo</option>
-                    <option value="PL">Polska</option>
-                    <option value="US">USA</option>
-                    <option value="DE">Niemcy</option>
-                    <option value="RU">Rosja</option>
-                  </select>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Horyzont czasowy</label>
-                  <div className="flex gap-6">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={timeHorizon.twelve}
-                        onChange={(e) => setTimeHorizon({ ...timeHorizon, twelve: e.target.checked })}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-gray-700">12 miesięcy</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={timeHorizon.thirtySix}
-                        onChange={(e) => setTimeHorizon({ ...timeHorizon, thirtySix: e.target.checked })}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-gray-700">36 miesięcy</span>
-                    </label>
-                  </div>
-                </div>
-
-                <div>
-                  <label className="block text-sm font-medium text-gray-700 mb-3">Wariant scenariusza</label>
-                  <div className="flex gap-6">
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={scenario.positive}
-                        onChange={(e) => setScenario({ ...scenario, positive: e.target.checked })}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-gray-700">pozytywny</span>
-                    </label>
-                    <label className="flex items-center gap-2 cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={scenario.negative}
-                        onChange={(e) => setScenario({ ...scenario, negative: e.target.checked })}
-                        className="w-4 h-4 text-blue-600 rounded focus:ring-2 focus:ring-blue-500"
-                      />
-                      <span className="text-gray-700">negatywny</span>
-                    </label>
-                  </div>
-                </div>
-              </div>
+          <div className="space-y-6">
+            {/* Analysis Name */}
+            <div className="space-y-2">
+              <label htmlFor="analysis-name" className="block text-sm font-medium text-gray-700">
+                Nazwa analizy
+              </label>
+              <input
+                id="analysis-name"
+                type="text"
+                value={analysisName}
+                onChange={(e) => setAnalysisName(e.target.value)}
+                placeholder="Wpływ cen ropy na bezpieczeństwo Atlantis"
+                className="max-w-2xl w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              />
             </div>
 
-            {/* Section 2: Data Sources */}
-            <div className="border-t-2 border-gray-200 pt-8">
-              <h2 className="text-xl font-bold text-gray-900 mb-2">Źródła do analizy</h2>
-              <p className="text-gray-500 text-sm mb-6">Dodaj źródło (plik lub tekst) i określ jego wagę.</p>
+            {/* Country */}
+            <div className="space-y-2">
+              <label htmlFor="country" className="block text-sm font-medium text-gray-700">
+                Państwo
+              </label>
+              <select
+                id="country"
+                value={country}
+                onChange={(e) => setCountry(e.target.value)}
+                className="max-w-xs w-full px-3 py-2 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+              >
+                <option value="Atlantis">Atlantis</option>
+                <option value="Pacifica">Pacifica</option>
+                <option value="Nordica">Nordica</option>
+              </select>
+            </div>
 
-              {/* File Upload Area */}
-              <div className="border-2 border-dashed border-gray-300 rounded-lg p-12 text-center bg-gray-50 mb-6">
-                <svg className="mx-auto h-16 w-16 text-gray-400 mb-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
-                </svg>
-                <h3 className="text-lg font-semibold text-gray-700 mb-2">Dodaj plik</h3>
-                <p className="text-sm text-gray-500 mb-4">Przeciągnij pliki tutaj lub</p>
-                <label className="inline-block px-6 py-2.5 bg-white border border-gray-300 text-gray-700 rounded-md cursor-pointer hover:bg-gray-50 transition">
-                  Wybierz plik z komputera
-                  <input type="file" multiple onChange={handleFileUpload} className="hidden" />
-                </label>
-                <p className="text-xs text-gray-500 mt-4">Dodaj: link, obraz, plik tekstowy lub arkusz kalkulacyjny</p>
-                {files.length > 0 && (
-                  <div className="mt-4 text-left max-w-md mx-auto">
-                    {files.map((file, i) => (
-                      <div key={i} className="text-sm text-green-600">✓ {file.name}</div>
-                    ))}
-                  </div>
+            {/* Time Horizon */}
+            <div className="space-y-2">
+              <label className="block text-sm font-medium text-gray-700">
+                Horyzont czasowy
+                {!timeHorizon12 && !timeHorizon36 && (
+                  <span className="text-red-600 text-xs ml-2">Wybierz co najmniej jedną opcję</span>
                 )}
-              </div>
-
-              {/* Text Input Areas */}
-              <div className="space-y-4">
-                {textSources.map((source, index) => (
-                  <div key={index}>
-                    <textarea
-                      value={source}
-                      onChange={(e) => {
-                        const updated = [...textSources];
-                        updated[index] = e.target.value;
-                        setTextSources(updated);
-                      }}
-                      className="w-full px-4 py-4 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
-                      rows="4"
-                      placeholder="Wskaźnik zaistniałej przed miesiącem katastrofy naturalnej wśród państw producenta graficznych karcią 60% względnie..."
-                    />
-                  </div>
-                ))}
+              </label>
+              <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={addTextSource}
-                  className="px-5 py-2 text-blue-600 border border-blue-600 rounded-md hover:bg-blue-50 transition"
+                  onClick={() => setTimeHorizon12(!timeHorizon12)}
+                  className={`px-6 py-2 rounded-md border transition-colors ${
+                    timeHorizon12
+                      ? 'bg-blue-50 border-blue-600 text-blue-700'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
                 >
-                  + Dodaj
+                  12 miesięcy
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setTimeHorizon36(!timeHorizon36)}
+                  className={`px-6 py-2 rounded-md border transition-colors ${
+                    timeHorizon36
+                      ? 'bg-blue-50 border-blue-600 text-blue-700'
+                      : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
+                  }`}
+                >
+                  36 miesięcy
                 </button>
               </div>
             </div>
 
-            {/* Submit Button */}
-            <div className="flex justify-end gap-4 pt-6">
-              <button
-                type="button"
-                onClick={() => navigate('/')}
-                className="px-6 py-3 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition"
-              >
-                Anuluj
-              </button>
-              <button
-                type="submit"
-                disabled={!isFormValid}
-                className="px-8 py-3.5 bg-blue-600 text-white rounded-md hover:bg-blue-700 disabled:bg-gray-300 disabled:cursor-not-allowed transition font-semibold text-base"
-              >
-                Analizuj
-              </button>
+            {/* Scenario Variants */}
+            <div className="space-y-3">
+              <label className="block text-sm font-medium text-gray-700">
+                Wariant scenariusza
+                {!positiveScenario && !negativeScenario && (
+                  <span className="text-red-600 text-xs ml-2">Wybierz co najmniej jedną opcję</span>
+                )}
+              </label>
+              <div className="flex gap-6">
+                <div className="flex items-center gap-2">
+                  <input
+                    id="positive"
+                    type="checkbox"
+                    checked={positiveScenario}
+                    onChange={(e) => setPositiveScenario(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="positive" className="text-sm cursor-pointer">
+                    Pozytywny dla interesów Atlantis
+                  </label>
+                </div>
+                <div className="flex items-center gap-2">
+                  <input
+                    id="negative"
+                    type="checkbox"
+                    checked={negativeScenario}
+                    onChange={(e) => setNegativeScenario(e.target.checked)}
+                    className="w-4 h-4 text-blue-600 border-gray-300 rounded focus:ring-blue-500"
+                  />
+                  <label htmlFor="negative" className="text-sm cursor-pointer">
+                    Negatywny dla interesów Atlantis
+                  </label>
+                </div>
+              </div>
             </div>
-          </form>
+          </div>
         </div>
+
+        {/* Sources Section */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-5">Źródła do analizy</h2>
+
+          {/* Action Buttons */}
+          <div className="flex gap-2 mb-6">
+            <button
+              type="button"
+              onClick={() => addSource('link')}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition flex items-center gap-2"
+            >
+              <Link2 className="w-4 h-4" />+ Link
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFileInput('image')}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition flex items-center gap-2"
+            >
+              <Image className="w-4 h-4" />+ Obraz
+            </button>
+            <button
+              type="button"
+              onClick={() => addSource('text')}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition flex items-center gap-2"
+            >
+              <FileText className="w-4 h-4" />+ Tekst
+            </button>
+            <button
+              type="button"
+              onClick={() => handleFileInput('file')}
+              className="px-3 py-2 text-sm border border-gray-300 rounded-md hover:bg-gray-50 transition flex items-center gap-2"
+            >
+              <Paperclip className="w-4 h-4" />+ Plik
+            </button>
+          </div>
+
+          {/* Sources List */}
+          {sources.length > 0 && (
+            <div className="space-y-0 divide-y divide-gray-100">
+              {sources.map((source) => {
+                const Icon = sourceIcons[source.type];
+                return (
+                  <div
+                    key={source.id}
+                    className="py-4 first:pt-0 hover:bg-gray-50 transition-colors px-3 -mx-3 rounded-md"
+                  >
+                    <div className="flex items-start gap-4">
+                      <div className="flex-shrink-0 mt-1">
+                        <Icon className="w-5 h-5 text-gray-500" />
+                      </div>
+
+                      <div className="flex-1 min-w-0 space-y-2">
+                        <div>
+                          {source.type === 'link' ? (
+                            <>
+                              <input
+                                type="text"
+                                value={source.name}
+                                onChange={(e) => updateSourceName(source.id, e.target.value)}
+                                placeholder="https://example.com"
+                                className="text-sm h-8 w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                              <input
+                                type="text"
+                                value={source.description}
+                                onChange={(e) => updateSourceDescription(source.id, e.target.value)}
+                                placeholder="Krótki opis"
+                                className="mt-1.5 text-sm h-8 w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </>
+                          ) : source.type === 'text' ? (
+                            <textarea
+                              value={source.description}
+                              onChange={(e) => updateSourceDescription(source.id, e.target.value)}
+                              placeholder="Wpisz tekst do analizy..."
+                              rows="4"
+                              className="text-sm w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500 resize-vertical"
+                            />
+                          ) : (
+                            <>
+                              <p className="text-sm break-all">{source.name}</p>
+                              <input
+                                type="text"
+                                value={source.description}
+                                onChange={(e) => updateSourceDescription(source.id, e.target.value)}
+                                placeholder="Krótki opis"
+                                className="mt-1.5 text-sm h-8 w-full px-2 py-1 border border-gray-300 rounded-md focus:ring-2 focus:ring-blue-500 focus:border-blue-500"
+                              />
+                            </>
+                          )}
+                        </div>
+
+                        {/* Weight Slider */}
+                        <div className="flex items-center gap-4 max-w-md">
+                          <span className="text-sm text-gray-600 whitespace-nowrap">
+                            Waga źródła
+                          </span>
+                          <input
+                            type="range"
+                            min="0"
+                            max="100"
+                            step="5"
+                            value={source.weight}
+                            onChange={(e) => updateSourceWeight(source.id, parseInt(e.target.value))}
+                            className="flex-1"
+                          />
+                          <span className="text-sm w-8 text-right">{source.weight}</span>
+                        </div>
+                      </div>
+
+                      {/* Actions */}
+                      <div className="flex items-center gap-2 flex-shrink-0">
+                        <button
+                          type="button"
+                          className="text-sm text-blue-600 hover:text-blue-700 hover:bg-blue-50 px-2 py-1 rounded transition flex items-center gap-1"
+                        >
+                          <Eye className="w-4 h-4" />
+                          Podgląd
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => deleteSource(source.id)}
+                          className="text-sm text-red-600 hover:text-red-700 hover:bg-red-50 px-2 py-1 rounded transition flex items-center gap-1"
+                        >
+                          <Trash2 className="w-4 h-4" />
+                          Usuń
+                        </button>
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+
+        {/* Scope Section */}
+        <div className="bg-white border border-gray-200 rounded-lg shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-gray-900 mb-5">Zakres źródeł w analizie</h2>
+
+          <div className="space-y-4">
+            <div className="flex items-center space-x-3">
+              <input
+                id="added"
+                type="radio"
+                name="sourceScope"
+                value="added"
+                checked={sourceScope === 'added'}
+                onChange={(e) => setSourceScope(e.target.value)}
+                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+              />
+              <label htmlFor="added" className="text-sm cursor-pointer">
+                Analiza tylko na dodanych źródłach
+              </label>
+            </div>
+            <div className="flex items-center space-x-3">
+              <input
+                id="extended"
+                type="radio"
+                name="sourceScope"
+                value="extended"
+                checked={sourceScope === 'extended'}
+                onChange={(e) => setSourceScope(e.target.value)}
+                className="w-4 h-4 text-blue-600 border-gray-300 focus:ring-blue-500"
+              />
+              <label htmlFor="extended" className="text-sm cursor-pointer">
+                Dodane źródła + dodatkowe wartościowe źródła MSZ
+              </label>
+            </div>
+          </div>
+
+          <p className="text-sm text-gray-500 mt-4 ml-7">
+            W drugim wariancie system automatycznie dobierze dodatkowe, sprawdzone źródła pasujące do
+            tematu analizy.
+          </p>
+        </div>
+      </div>
+
+      {/* Footer Actions */}
+      <div className="flex items-center justify-end gap-3 mt-10 pt-6 border-t border-gray-200">
+        <button
+          type="button"
+          onClick={handleCancel}
+          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition"
+        >
+          Anuluj
+        </button>
+        <button
+          type="button"
+          onClick={handleSaveDraft}
+          className="px-6 py-2 border border-gray-300 text-gray-700 rounded-md hover:bg-gray-50 transition"
+        >
+          Zapisz jako szkic
+        </button>
+        <button
+          type="button"
+          onClick={handleRunAnalysis}
+          className="px-6 py-2 bg-blue-600 text-white rounded-md hover:bg-blue-700 transition"
+        >
+          Uruchom analizę
+        </button>
       </div>
     </div>
   );
