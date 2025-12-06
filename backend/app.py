@@ -130,6 +130,24 @@ def get_job_details(job_uuid):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/jobs', methods=['GET'])
+def get_all_jobs():
+    try:
+        limit = request.args.get('limit', 100, type=int)
+
+        conn = get_db_connection()
+        processing_service = ProcessingService(conn)
+
+        jobs = processing_service.get_all_jobs(limit)
+
+        conn.close()
+
+        return jsonify({'jobs': jobs, 'count': len(jobs)}), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+
+
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=config.PORT, debug=config.FLASK_DEBUG)

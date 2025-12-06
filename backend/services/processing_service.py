@@ -25,6 +25,9 @@ class ProcessingService:
     def get_job_status(self, job_uuid):
         return self.job_service.get_job_status(job_uuid)
 
+    def get_all_jobs(self, limit=100):
+        return self.job_service.get_all_jobs(limit)
+
     def update_job_status(self, job_uuid, status, error_message=None):
         return self.job_service.update_job_status(job_uuid, status, error_message)
 
