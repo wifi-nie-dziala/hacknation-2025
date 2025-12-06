@@ -217,4 +217,7 @@ def search_facts():
 
 
 if __name__ == '__main__':
-    app.run(host='0.0.0.0', port=5000, debug=True)
+    # Debug mode should only be enabled in development
+    # In production, use gunicorn (see Dockerfile)
+    debug_mode = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'
+    app.run(host='0.0.0.0', port=5000, debug=debug_mode)
