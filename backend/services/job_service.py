@@ -107,6 +107,151 @@ class JobService:
         finally:
             cur.close()
 
+    def get_all_jobs(self, limit: int = 100) -> List[Dict]:
+        """Get all jobs with full associated data."""
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message
+                FROM processing_jobs
+                ORDER BY created_at DESC
+                LIMIT %s
+                """,
+                (limit,)
+            )
+            jobs_rows = cur.fetchall()
+
+            jobs = []
+            for job_row in jobs_rows:
+                job_uuid = str(job_row[0])
+
+                cur.execute(
+                    """
+                    SELECT id, item_type, content, wage, status, processed_content, error_message
+                    FROM processing_items
+                    WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
+                    ORDER BY id
+                    """,
+                    (job_uuid,)
+                )
+                items_rows = cur.fetchall()
+
+                cur.execute(
+                    """
+                    SELECT id, step_number, step_type, status, input_data, output_data, 
+                           error_message, metadata, created_at, completed_at
+                    FROM processing_steps
+                    WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
+                    ORDER BY step_number
+                    """,
+                    (job_uuid,)
+                )
+                steps_rows = cur.fetchall()
+
+                cur.execute(
+                    """
+                    SELECT id, url, content, content_type, status, error_message, metadata, created_at
+                    FROM scraped_data
+                    WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
+                    ORDER BY created_at
+                    """,
+                    (job_uuid,)
+                )
+                scraped_rows = cur.fetchall()
+
+                cur.execute(
+                    """
+                    SELECT id, fact, source_type, source_content, confidence, 
+                           is_validated, language, metadata, created_at
+                    FROM extracted_facts
+                    WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
+                    ORDER BY created_at
+                    """,
+                    (job_uuid,)
+                )
+                facts_rows = cur.fetchall()
+
+                items = [
+                    {
+                        'id': row[0],
+                        'type': row[1],
+                        'content': row[2],
+                        'wage': float(row[3]) if row[3] else None,
+                        'status': row[4],
+                        'processed_content': row[5],
+                        'error_message': row[6]
+                    }
+                    for row in items_rows
+                ]
+
+                steps = [
+                    {
+                        'id': row[0],
+                        'step_number': row[1],
+                        'step_type': row[2],
+                        'status': row[3],
+                        'input_data': row[4],
+                        'output_data': row[5],
+                        'error_message': row[6],
+                        'metadata': row[7],
+                        'created_at': row[8].isoformat() if row[8] else None,
+                        'completed_at': row[9].isoformat() if row[9] else None
+                    }
+                    for row in steps_rows
+                ]
+
+                scraped_data = [
+                    {
+                        'id': row[0],
+                        'url': row[1],
+                        'content': row[2],
+                        'content_type': row[3],
+                        'status': row[4],
+                        'error_message': row[5],
+                        'metadata': row[6],
+                        'created_at': row[7].isoformat() if row[7] else None
+                    }
+                    for row in scraped_rows
+                ]
+
+                extracted_facts = [
+                    {
+                        'id': row[0],
+                        'fact': row[1],
+                        'source_type': row[2],
+                        'source_content': row[3],
+                        'confidence': float(row[4]) if row[4] else None,
+                        'is_validated': row[5],
+                        'language': row[6],
+                        'metadata': row[7],
+                        'created_at': row[8].isoformat() if row[8] else None
+                    }
+                    for row in facts_rows
+                ]
+
+                jobs.append({
+                    'job_uuid': job_uuid,
+                    'status': job_row[1],
+                    'created_at': job_row[2].isoformat() if job_row[2] else None,
+                    'updated_at': job_row[3].isoformat() if job_row[3] else None,
+                    'completed_at': job_row[4].isoformat() if job_row[4] else None,
+                    'error_message': job_row[5],
+                    'items': items,
+                    'steps': steps,
+                    'scraped_data': scraped_data,
+                    'extracted_facts': extracted_facts,
+                    'total_items': len(items),
+                    'completed_items': sum(1 for item in items if item['status'] == 'completed'),
+                    'failed_items': sum(1 for item in items if item['status'] == 'failed')
+                })
+
+            return jobs
+
+        finally:
+            cur.close()
+
+
     def update_job_status(self, job_uuid: str, status: str, error_message: Optional[str] = None):
         """Update job status."""
         if status not in self.VALID_STATUSES:
