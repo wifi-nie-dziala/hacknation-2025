@@ -1,11 +1,11 @@
 import pytest
 import sys
 import os
-from unittest.mock import Mock, patch, MagicMock
+from unittest.mock import Mock, patch
 
 sys.path.insert(0, os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from app import app, get_db_connection
+from app import app
 
 
 @pytest.fixture
@@ -20,111 +20,80 @@ def test_health_endpoint(client):
     assert response.status_code == 200
     data = response.get_json()
     assert data['status'] == 'healthy'
-    assert data['service'] == 'backend'
 
 
 @patch('app.get_db_connection')
-def test_facts_get(mock_db, client):
+@patch('app.ProcessingService')
+def test_submit_job(mock_service, mock_db, client):
+    mock_service_instance = Mock()
+    mock_service.return_value = mock_service_instance
+    mock_service_instance.create_job.return_value = 'test-uuid-123'
+
+    response = client.post('/api/submit', json={
+        'items': [{'type': 'text', 'content': 'Test', 'wage': 50}],
+        'processing': {'enable_fact_extraction': True}
+    })
+    assert response.status_code == 201
+    data = response.get_json()
+    assert data['job_uuid'] == 'test-uuid-123'
+
+
+def test_submit_job_no_items(client):
+    response = client.post('/api/submit', json={})
+    assert response.status_code == 400
+
+
+@patch('app.get_db_connection')
+def test_get_results(mock_db, client):
     from datetime import datetime
     mock_conn = Mock()
     mock_cur = Mock()
     mock_db.return_value = mock_conn
     mock_conn.cursor.return_value = mock_cur
-    mock_cur.fetchall.return_value = [
-        (1, 'Test fact', 'en', datetime(2024, 1, 1))
+
+    mock_cur.fetchall.side_effect = [
+        [('job-uuid', 'completed', datetime(2024, 1, 1), datetime(2024, 1, 1))],
+        [(1, 'Test fact', 'en', datetime(2024, 1, 1))]
     ]
 
-    response = client.get('/api/facts')
+    response = client.get('/api/results')
     assert response.status_code == 200
     data = response.get_json()
+    assert 'jobs' in data
     assert 'facts' in data
+    assert len(data['jobs']) == 1
     assert len(data['facts']) == 1
-    assert data['facts'][0]['fact'] == 'Test fact'
 
 
 @patch('app.get_db_connection')
-def test_facts_post(mock_db, client):
-    mock_conn = Mock()
-    mock_cur = Mock()
-    mock_db.return_value = mock_conn
-    mock_conn.cursor.return_value = mock_cur
-    mock_cur.fetchone.return_value = [123]
+@patch('app.ProcessingService')
+def test_get_job_details(mock_service, mock_db, client):
+    mock_service_instance = Mock()
+    mock_service.return_value = mock_service_instance
+    mock_service_instance.get_job_status.return_value = {
+        'job_uuid': 'test-uuid',
+        'status': 'completed',
+        'items': []
+    }
+    mock_service_instance.get_job_steps.return_value = []
+    mock_service_instance.get_extracted_facts.return_value = []
 
-    response = client.post('/api/facts', json={
-        'fact': 'New fact',
-        'language': 'en'
-    })
-    assert response.status_code == 201
-    data = response.get_json()
-    assert data['id'] == 123
-
-
-def test_facts_post_no_fact(client):
-    response = client.post('/api/facts', json={})
-    assert response.status_code == 400
-    data = response.get_json()
-    assert 'error' in data
-
-
-@patch('app.requests.post')
-def test_extract_facts_en(mock_requests, client):
-    mock_response = Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {'response': 'Extracted facts'}
-    mock_requests.return_value = mock_response
-
-    response = client.post('/api/extract-facts-en', json={
-        'text': 'Some text to extract facts from'
-    })
+    response = client.get('/api/jobs/test-uuid')
     assert response.status_code == 200
     data = response.get_json()
-    assert data['facts'] == 'Extracted facts'
-    assert data['language'] == 'en'
-
-
-def test_extract_facts_en_no_text(client):
-    response = client.post('/api/extract-facts-en', json={})
-    assert response.status_code == 400
-
-
-@patch('app.requests.post')
-def test_extract_facts_pl(mock_requests, client):
-    mock_response = Mock()
-    mock_response.status_code = 200
-    mock_response.json.return_value = {'response': 'Wyodrębnione fakty'}
-    mock_requests.return_value = mock_response
-
-    response = client.post('/api/extract-facts-pl', json={
-        'text': 'Tekst do wyodrębnienia faktów'
-    })
-    assert response.status_code == 200
-    data = response.get_json()
-    assert data['facts'] == 'Wyodrębnione fakty'
-    assert data['language'] == 'pl'
+    assert 'job' in data
+    assert 'steps' in data
+    assert 'facts' in data
 
 
 @patch('app.get_db_connection')
-def test_search_facts(mock_db, client):
-    mock_conn = Mock()
-    mock_cur = Mock()
-    mock_db.return_value = mock_conn
-    mock_conn.cursor.return_value = mock_cur
-    mock_cur.fetchall.return_value = [
-        (1, 'Similar fact', 'en', 0.1)
-    ]
+@patch('app.ProcessingService')
+def test_get_job_details_not_found(mock_service, mock_db, client):
+    mock_service_instance = Mock()
+    mock_service.return_value = mock_service_instance
+    mock_service_instance.get_job_status.return_value = None
 
-    embedding = [0.1] * 384
-    response = client.post('/api/search', json={
-        'embedding': embedding,
-        'limit': 5
-    })
-    assert response.status_code == 200
-    data = response.get_json()
-    assert 'results' in data
-    assert len(data['results']) == 1
+    response = client.get('/api/jobs/nonexistent-uuid')
+    assert response.status_code == 404
 
-
-def test_search_facts_no_embedding(client):
-    response = client.post('/api/search', json={})
-    assert response.status_code == 400
 

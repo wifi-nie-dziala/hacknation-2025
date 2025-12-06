@@ -1,180 +1,167 @@
-import base64
-from datetime import datetime, timezone
-from typing import List, Dict, Optional
+"""Processing orchestrator - coordinates all processing services."""
+from typing import Dict
+from .job_service import JobService
+from .step_service import StepService
+from .scraper_service import ScraperService
+from .fact_extraction_service import FactExtractionService
+from .fact_storage_service import FactStorageService
 
 
 class ProcessingService:
-    VALID_TYPES = ['text', 'file', 'link']
-    VALID_STATUSES = ['pending', 'processing', 'completed', 'failed']
+    """Orchestrates the multi-step processing workflow."""
 
     def __init__(self, db_connection):
         self.conn = db_connection
-    def create_job(self, items: List[Dict]) -> str:
-        if not items:
-            raise ValueError("Items list cannot be empty")
+        self.job_service = JobService(db_connection)
+        self.step_service = StepService(db_connection)
+        self.scraper_service = ScraperService(db_connection)
+        self.fact_extraction_service = FactExtractionService()
+        self.fact_storage_service = FactStorageService(db_connection)
 
-        for item in items:
-            self._validate_item(item)
+    # Delegate to JobService
+    def create_job(self, items):
+        return self.job_service.create_job(items)
 
-        cur = self.conn.cursor()
+    def get_job_status(self, job_uuid):
+        return self.job_service.get_job_status(job_uuid)
+
+    def update_job_status(self, job_uuid, status, error_message=None):
+        return self.job_service.update_job_status(job_uuid, status, error_message)
+
+    def update_item_status(self, item_id, status, processed_content=None, error_message=None):
+        return self.job_service.update_item_status(item_id, status, processed_content, error_message)
+
+    # Delegate to StepService
+    def get_job_steps(self, job_uuid):
+        return self.step_service.get_job_steps(job_uuid)
+
+    # Delegate to FactStorageService
+    def get_extracted_facts(self, job_uuid, validated_only=False):
+        return self.fact_storage_service.get_extracted_facts(job_uuid, validated_only)
+
+    def validate_and_store_fact(self, fact_id, embedding=None):
+        return self.fact_storage_service.validate_and_store_fact(fact_id, embedding)
+
+    # Processing orchestration
+    def process_job(self, job_uuid: str, processing_config: Dict):
+        """Execute the processing workflow for a job."""
+        step_number = 1
+        language = processing_config.get('language', 'en')
+
         try:
-            # Create the job
-            cur.execute(
-                """
-                INSERT INTO processing_jobs (status)
-                VALUES ('pending')
-                RETURNING job_uuid
-                """
-            )
-            job_uuid = cur.fetchone()[0]
+            self.job_service.update_job_status(job_uuid, 'processing')
 
-            # Create items for the job
-            for item in items:
-                cur.execute(
-                    """
-                    INSERT INTO processing_items (job_id, item_type, content, wage, status)
-                    VALUES (
-                        (SELECT id FROM processing_jobs WHERE job_uuid = %s),
-                        %s, %s, %s, 'pending'
-                    )
-                    """,
-                    (job_uuid, item['type'], item['content'], item.get('wage'))
+            job_status = self.job_service.get_job_status(job_uuid)
+            if not job_status:
+                return
+
+            items = job_status['items']
+            all_content = []
+
+            # Step 1: Scraping
+            if processing_config.get('enable_scraping'):
+                all_content.extend(
+                    self._scrape_links(job_uuid, items, step_number)
                 )
+                step_number += len([i for i in items if i['type'] == 'link'])
 
-            self.conn.commit()
-            return str(job_uuid)
+            # Add text items
+            all_content.extend([
+                item['content']
+                for item in items
+                if item['type'] == 'text'
+            ])
+
+            # Step 2: Fact Extraction
+            if processing_config.get('enable_fact_extraction') and all_content:
+                fact_ids = self._extract_facts(
+                    job_uuid, all_content, language, step_number
+                )
+                step_number += 1
+
+                # Step 3: Validation
+                if processing_config.get('enable_validation'):
+                    self._validate_facts(job_uuid, fact_ids, step_number)
+
+            self.job_service.update_job_status(job_uuid, 'completed')
 
         except Exception as e:
-            self.conn.rollback()
-            raise e
-        finally:
-            cur.close()
-    def get_job_status(self, job_uuid: str) -> Optional[Dict]:
-        cur = self.conn.cursor()
-        try:
-            # Get job details
-            cur.execute(
-                """
-                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message
-                FROM processing_jobs
-                WHERE job_uuid = %s
-                """,
-                (job_uuid,)
+            self.job_service.update_job_status(job_uuid, 'failed', str(e))
+            raise
+
+    def _scrape_links(self, job_uuid: str, items: list, step_number: int) -> list:
+        """Scrape all link items."""
+        scraped_content = []
+
+        for item in items:
+            if item['type'] == 'link':
+                step_id = self.step_service.create_step(
+                    job_uuid, step_number, 'scraping',
+                    {'url': item['content']},
+                    {'source': 'link_item'}
+                )
+                step_number += 1
+
+                self.step_service.update_step(step_id, 'processing')
+                result = self.scraper_service.scrape_url(job_uuid, step_id, item['content'])
+
+                if result['success']:
+                    scraped_content.append(result['content'])
+                    self.step_service.update_step(
+                        step_id, 'completed',
+                        {'scraped_length': len(result['content'])}
+                    )
+                else:
+                    self.step_service.update_step(
+                        step_id, 'failed',
+                        error_message=result['error']
+                    )
+
+        return scraped_content
+
+    def _extract_facts(self, job_uuid: str, content_list: list, language: str, step_number: int) -> list:
+        """Extract facts from content."""
+        combined_text = ' '.join(content_list)[:10000]
+
+        step_id = self.step_service.create_step(
+            job_uuid, step_number, 'extraction',
+            {'text_length': len(combined_text)},
+            {'language': language}
+        )
+
+        self.step_service.update_step(step_id, 'processing')
+        facts = self.fact_extraction_service.extract_facts(combined_text, language)
+
+        fact_ids = []
+        for fact in facts[:20]:
+            fact_id = self.fact_storage_service.store_extracted_fact(
+                job_uuid, step_id, fact, 'llm_extraction',
+                combined_text[:500], 0.7, language
             )
+            fact_ids.append(fact_id)
 
-            job_row = cur.fetchone()
-            if not job_row:
-                return None
+        self.step_service.update_step(
+            step_id, 'completed',
+            {'facts_extracted': len(facts)}
+        )
 
-            # Get items for the job
-            cur.execute(
-                """
-                SELECT id, item_type, content, wage, status, processed_content, error_message
-                FROM processing_items
-                WHERE job_id = (SELECT id FROM processing_jobs WHERE job_uuid = %s)
-                ORDER BY id
-                """,
-                (job_uuid,)
-            )
+        return fact_ids
 
-            items_rows = cur.fetchall()
+    def _validate_facts(self, job_uuid: str, fact_ids: list, step_number: int):
+        """Validate and store facts."""
+        step_id = self.step_service.create_step(
+            job_uuid, step_number, 'validation',
+            {'fact_count': len(fact_ids)},
+            {'auto_validate': True}
+        )
 
-            items = [
-                {
-                    'id': row[0],
-                    'type': row[1],
-                    'content': row[2],
-                    'wage': float(row[3]) if row[3] else None,
-                    'status': row[4],
-                    'processed_content': row[5],
-                    'error_message': row[6]
-                }
-                for row in items_rows
-            ]
+        self.step_service.update_step(step_id, 'processing')
 
-            return {
-                'job_uuid': str(job_row[0]),
-                'status': job_row[1],
-                'created_at': job_row[2].isoformat() if job_row[2] else None,
-                'updated_at': job_row[3].isoformat() if job_row[3] else None,
-                'completed_at': job_row[4].isoformat() if job_row[4] else None,
-                'error_message': job_row[5],
-                'items': items,
-                'total_items': len(items),
-                'completed_items': sum(1 for item in items if item['status'] == 'completed'),
-                'failed_items': sum(1 for item in items if item['status'] == 'failed')
-            }
+        for fact_id in fact_ids:
+            self.fact_storage_service.validate_and_store_fact(fact_id)
 
-        finally:
-            cur.close()
-    def update_job_status(self, job_uuid: str, status: str, error_message: Optional[str] = None):
-        if status not in self.VALID_STATUSES:
-            raise ValueError(f"Invalid status: {status}")
-
-        cur = self.conn.cursor()
-        try:
-            completed_at = datetime.now(timezone.utc) if status in ['completed', 'failed'] else None
-
-            cur.execute(
-                """
-                UPDATE processing_jobs
-                SET status = %s, updated_at = %s, completed_at = %s, error_message = %s
-                WHERE job_uuid = %s
-                """,
-                (status, datetime.now(timezone.utc), completed_at, error_message, job_uuid)
-            )
-
-            self.conn.commit()
-        finally:
-            cur.close()
-
-    def update_item_status(self, item_id: int, status: str,
-                          processed_content: Optional[str] = None,
-                          error_message: Optional[str] = None):
-        if status not in self.VALID_STATUSES:
-            raise ValueError(f"Invalid status: {status}")
-
-        cur = self.conn.cursor()
-        try:
-            cur.execute(
-                """
-                UPDATE processing_items
-                SET status = %s, updated_at = %s, processed_content = %s, error_message = %s
-                WHERE id = %s
-                """,
-                (status, datetime.now(timezone.utc), processed_content, error_message, item_id)
-            )
-
-            self.conn.commit()
-        finally:
-            cur.close()
-    def _validate_item(self, item: Dict):
-        if 'type' not in item:
-            raise ValueError("Item must have 'type' field")
-
-        if item['type'] not in self.VALID_TYPES:
-            raise ValueError(f"Invalid type: {item['type']}. Must be one of {self.VALID_TYPES}")
-
-        if 'content' not in item:
-            raise ValueError("Item must have 'content' field")
-
-        if not item['content']:
-            raise ValueError("Item content cannot be empty")
-
-        if item['type'] == 'file':
-            try:
-                base64.b64decode(item['content'], validate=True)
-            except Exception as e:
-                raise ValueError(f"File content must be valid base64 encoded string: {str(e)}")
-
-        if item['type'] == 'link':
-            content = item['content'].strip()
-            if not (content.startswith('http://') or content.startswith('https://')):
-                raise ValueError("Link content must be a valid URL starting with http:// or https://")
-
-        if 'wage' in item and item['wage'] is not None:
-            try:
-                float(item['wage'])
-            except (ValueError, TypeError):
-                raise ValueError("Wage must be a valid number")
+        self.step_service.update_step(
+            step_id, 'completed',
+            {'validated_facts': len(fact_ids)}
+        )
 

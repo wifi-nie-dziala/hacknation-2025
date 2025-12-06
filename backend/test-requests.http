@@ -1,16 +1,73 @@
-### GET request to example server
-GET http://localhost:8080/api/processing/status/11111111-1111-1111-1111-111111111111
+### Health check
+GET http://localhost:8080/health
 
-### GET all processing jobs
-GET http://localhost:8080/api/processing/jobs
+###
+### Submit job - text only (no processing)
 
-### GET processing jobs with status filter
-GET http://localhost:8080/api/processing/jobs?status=completed
+POST http://localhost:8080/api/submit
+Content-Type: application/json
 
-### GET processing jobs with pagination
-GET http://localhost:8080/api/processing/jobs?limit=10&offset=0
+{
+  "items": [
+    {
+      "type": "text",
+      "content": "AI is revolutionizing healthcare.",
+      "wage": 50.00
+    }
+  ]
+}
 
-### GET processing jobs with all filters
-GET http://localhost:8080/api/processing/jobs?status=pending&limit=5&offset=0
+### Submit job - with fact extraction
+POST http://localhost:8080/api/submit
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "type": "text",
+      "content": "Climate change is causing ice caps to melt and sea levels to rise. The average global temperature has increased by 1.1°C since pre-industrial times.",
+      "wage": 75.00
+    }
+  ],
+  "processing": {
+    "enable_fact_extraction": true,
+    "language": "en"
+  }
+}
+
+### Submit job - with scraping and fact extraction
+POST http://localhost:8080/api/submit
+Content-Type: application/json
+
+{
+  "items": [
+    {
+      "type": "text",
+      "content": "Quantum computing uses qubits instead of classical bits.",
+      "wage": 60.00
+    },
+    {
+      "type": "link",
+      "content": "https://example.com",
+      "wage": 100.00
+    }
+  ],
+  "processing": {
+    "enable_scraping": true,
+    "enable_fact_extraction": true,
+    "language": "en"
+  }
+}
+
+### Get all jobs and facts
+GET http://localhost:8080/api/results
+
+### Get specific job details (replace with actual job UUID from submit response)
+GET http://localhost:8080/api/jobs/285ea171-4f91-4310-a13a-b1752664f60a
+
+### Example: Get job details (use a real UUID from your system)
+# GET http://localhost:8080/api/jobs/550e8400-e29b-41d4-a716-446655440000
+
+
 
 
