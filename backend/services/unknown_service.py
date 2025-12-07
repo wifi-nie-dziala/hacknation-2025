@@ -48,11 +48,11 @@ class UnknownService:
 
         system_message = (
             f"You are an expert analyst for the hypothetical country Atlantis. {ATLANTIS_CONTEXT}\n\n"
-            "Identify missing information or unknowns that would be important for Atlantis. "
-            "Return only the missing information items, one per line." if language == 'en' else
+            "Identify missing information or unknowns that would be important for Atlantis.\n"
+            "Format:\n- missing info 1\n- missing info 2\n- missing info 3" if language == 'en' else
             f"Jesteś ekspertem analitykiem dla hipotetycznego państwa Atlantis. {ATLANTIS_CONTEXT}\n\n"
-            "Zidentyfikuj brakujące informacje lub niewiadome, które byłyby ważne dla Atlantis. "
-            "Zwróć tylko brakujące informacje, jedną na linię."
+            "Zidentyfikuj brakujące informacje lub niewiadome, które byłyby ważne dla Atlantis.\n"
+            "Format:\n- brak info 1\n- brak info 2\n- brak info 3"
         )
 
         prompt = self._build_prompt(text, language, facts_context)
@@ -113,20 +113,27 @@ class UnknownService:
             return (
                 f"Context: You are analyzing information for the hypothetical country Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
                 f"Based on the following text, identify what information is missing or unknown that would be important for Atlantis:\n\n{text}\n\n"
-                "Missing information:"
+                "Format:\n- missing info 1\n- missing info 2\n- missing info 3"
             )
         else:
             return (
                 f"Kontekst: Analizujesz informacje dla hipotetycznego państwa Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
                 f"Na podstawie następującego tekstu zidentyfikuj, jakie informacje brakują lub są nieznane, a które byłyby ważne dla Atlantis:\n\n{text}\n\n"
-                "Brakujące informacje:"
+                "Format:\n- brak info 1\n- brak info 2\n- brak info 3"
             )
 
     def _parse_unknowns(self, unknowns_text: str) -> List[str]:
         """Parse unknowns from LLM response."""
-        unknowns = [
-            u.strip()
-            for u in unknowns_text.split('\n')
-            if u.strip() and not u.strip().startswith('-') and not u.strip().startswith('*')
-        ]
+        print(f"[UNKNOWN_PARSING] Raw LLM response: {unknowns_text[:200]}...", flush=True)
+        lines = unknowns_text.split('\n')
+        unknowns = []
+
+        for line in lines:
+            line = line.strip()
+            if line and (line.startswith('-') or line.startswith('*') or line.startswith('•')):
+                cleaned = line.lstrip('-*•').strip()
+                if cleaned and len(cleaned) > 10:
+                    unknowns.append(cleaned)
+
+        print(f"[UNKNOWN_PARSING] Extracted {len(unknowns)} unknowns", flush=True)
         return unknowns
