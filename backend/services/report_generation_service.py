@@ -57,12 +57,23 @@ Na podstawie powyższych danych wygeneruj raport analityczny w formacie JSON z n
 {{
   "time_horizon": "{time_horizon}",
   "summary": "Streszczenie danych (max 150 słów) - przejrzyste, user-friendly",
-  "positive_scenario": "Scenariusz pozytywny dla Atlantis w horyzoncie {time_horizon} z wyjaśnieniem korelacji (200-300 słów)",
-  "negative_scenario": "Scenariusz negatywny dla Atlantis w horyzoncie {time_horizon} z wyjaśnieniem korelacji (200-300 słów)",
-  "recommendations": "Rekomendacje: jakie decyzje pomogą uniknąć scenariuszy negatywnych w ciągu {time_horizon} (200-300 słów)"
+  "positive_scenario": "Scenariusz pozytywny dla Atlantis w horyzoncie {time_horizon}. MUSISZ zawrzeć: konkretne wydarzenia (co dokładnie się stanie), aktorów (kto podejmie działania), daty/kamienie milowe, mierzalne rezultaty. Wyjaśnij łańcuch przyczynowo-skutkowy. (200-300 słów)",
+  "negative_scenario": "Scenariusz negatywny dla Atlantis w horyzoncie {time_horizon}. MUSISZ zawrzeć: konkretne zagrożenia (co dokładnie pójdzie źle), aktorów odpowiedzialnych, punkty krytyczne/momenty decyzyjne, potencjalne straty (liczbowe jeśli możliwe). Wyjaśnij łańcuch przyczynowo-skutkowy. (200-300 słów)",
+  "recommendations": [
+    {{
+      "action": "Konkretna akcja do podjęcia (np. 'Podpisać umowę handlową z Finlandią')",
+      "responsible_entity": "Kto powinien to wykonać (np. 'Ministerstwo Gospodarki')",
+      "timeline": "Kiedy wykonać (np. 'W ciągu 3 miesięcy')",
+      "expected_outcome": "Oczekiwany rezultat",
+      "priority": "wysoki/średni/niski"
+    }}
+  ]
 }}
 
-WAŻNE: Odpowiedz TYLKO poprawnym JSON-em, bez żadnego dodatkowego tekstu."""
+WAŻNE: 
+- Rekomendacje MUSZĄ być konkretne i wykonalne - unikaj ogólników typu "wzmocnić współpracę"
+- Podaj KTO konkretnie powinien działać, CO dokładnie zrobić, KIEDY
+- Odpowiedz TYLKO poprawnym JSON-em, bez żadnego dodatkowego tekstu."""
         else:
             return f"""ATLANTIS CONTEXT:
 {ATLANTIS_CONTEXT}
@@ -86,12 +97,23 @@ Based on the above data, generate an analytical report in JSON format with this 
 {{
   "time_horizon": "{time_horizon}",
   "summary": "Data summary (max 150 words) - clear, user-friendly",
-  "positive_scenario": "Positive scenario for Atlantis within {time_horizon} with correlations and cause-effect explanations (200-300 words)",
-  "negative_scenario": "Negative scenario for Atlantis within {time_horizon} with correlations and cause-effect explanations (200-300 words)",
-  "recommendations": "Recommendations: decisions to avoid negative scenarios within {time_horizon} (200-300 words)"
+  "positive_scenario": "Positive scenario for Atlantis within {time_horizon}. MUST include: specific events (what exactly will happen), actors (who will take action), dates/milestones, measurable outcomes. Explain the cause-effect chain. (200-300 words)",
+  "negative_scenario": "Negative scenario for Atlantis within {time_horizon}. MUST include: specific threats (what exactly will go wrong), responsible actors, critical points/decision moments, potential losses (quantified if possible). Explain the cause-effect chain. (200-300 words)",
+  "recommendations": [
+    {{
+      "action": "Specific action to take (e.g., 'Sign trade agreement with Finland')",
+      "responsible_entity": "Who should execute this (e.g., 'Ministry of Economy')",
+      "timeline": "When to execute (e.g., 'Within 3 months')",
+      "expected_outcome": "Expected result",
+      "priority": "high/medium/low"
+    }}
+  ]
 }}
 
-IMPORTANT: Reply with ONLY valid JSON, no additional text."""
+IMPORTANT:
+- Recommendations MUST be specific and actionable - avoid generalities like "strengthen cooperation"
+- Specify WHO exactly should act, WHAT exactly to do, WHEN
+- Reply with ONLY valid JSON, no additional text."""
 
     def _generate_with_cloudflare(self, facts: List[Dict], predictions: List[Dict],
                                    unknowns: List[Dict], relations: List[Dict],
