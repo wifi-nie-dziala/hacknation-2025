@@ -57,10 +57,10 @@ echo "This may take several minutes on first run (downloading models)..."
 echo ""
 
 if [ "$COMPOSE_FILE" = "docker-compose.yml" ]; then
-    docker-compose up -d --build backend
+    docker-compose up -d --build backend frontend
     docker-compose up -d
 else
-    docker-compose -f docker-compose.cpu.yml up -d --build backend
+    docker-compose -f docker-compose.cpu.yml up -d --build backend frontend
     docker-compose -f docker-compose.cpu.yml up -d
 fi
 
