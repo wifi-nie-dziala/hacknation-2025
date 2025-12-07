@@ -1,4 +1,4 @@
-"""Fact extraction service using LLM."""
+"""Unknown information extraction service using LLM."""
 import requests
 from typing import List
 import config
@@ -20,18 +20,18 @@ Kamienie milowe w rozwoju politycznym i gospodarczym: demokracja parlamentarna o
 """
 
 
-class FactExtractionService:
-    """Handles LLM-based fact extraction."""
+class UnknownService:
+    """Handles LLM-based unknown/missing information extraction."""
 
-    def extract_facts(self, text: str, language: str = 'en') -> List[str]:
-        """Extract facts from text using LLM."""
+    def extract_unknowns(self, text: str, language: str = 'en') -> List[str]:
+        """Extract missing information from text using LLM."""
         if config.LLM_PROVIDER == 'cloudflare':
             return self._extract_with_cloudflare(text, language)
         else:
             return self._extract_with_ollama(text, language)
 
     def _extract_with_cloudflare(self, text: str, language: str) -> List[str]:
-        """Extract facts using Cloudflare Workers AI."""
+        """Extract unknowns using Cloudflare Workers AI."""
         if not config.CLOUDFLARE_ACCOUNT_ID or not config.CLOUDFLARE_API_TOKEN:
             print("ERROR: Cloudflare credentials not configured")
             return []
@@ -47,11 +47,11 @@ class FactExtractionService:
 
         system_message = (
             f"You are an expert analyst for the hypothetical country Atlantis. {ATLANTIS_CONTEXT}\n\n"
-            "Extract key facts from text that are relevant to Atlantis. "
-            "Return only the facts, one per line." if language == 'en' else
+            "Identify missing information or unknowns that would be important for Atlantis. "
+            "Return only the missing information items, one per line." if language == 'en' else
             f"Jesteś ekspertem analitykiem dla hipotetycznego państwa Atlantis. {ATLANTIS_CONTEXT}\n\n"
-            "Wyodrębnij kluczowe fakty z tekstu, które są istotne dla Atlantis. "
-            "Zwróć tylko fakty, jeden na linię."
+            "Zidentyfikuj brakujące informacje lub niewiadome, które byłyby ważne dla Atlantis. "
+            "Zwróć tylko brakujące informacje, jedną na linię."
         )
 
         prompt = self._build_prompt(text, language)
@@ -70,8 +70,8 @@ class FactExtractionService:
             result = response.json()
 
             if result.get("success"):
-                facts_text = result["result"]["response"]
-                return self._parse_facts(facts_text)
+                unknowns_text = result["result"]["response"]
+                return self._parse_unknowns(unknowns_text)
             else:
                 print(f"Cloudflare AI error: {result.get('errors')}")
                 return []
@@ -81,7 +81,7 @@ class FactExtractionService:
             return []
 
     def _extract_with_ollama(self, text: str, language: str) -> List[str]:
-        """Extract facts using local Ollama LLM."""
+        """Extract unknowns using local Ollama LLM."""
         prompt = self._build_prompt(text, language)
 
         try:
@@ -93,8 +93,8 @@ class FactExtractionService:
 
             if response.status_code == 200:
                 result = response.json()
-                facts_text = result.get('response', '')
-                return self._parse_facts(facts_text)
+                unknowns_text = result.get('response', '')
+                return self._parse_unknowns(unknowns_text)
             else:
                 print(f"Ollama extraction error: Status {response.status_code}, Response: {response.text}")
                 return []
@@ -107,16 +107,23 @@ class FactExtractionService:
     def _build_prompt(self, text: str, language: str) -> str:
         """Build extraction prompt."""
         if language == 'en':
-            return f'Extract key facts from the following text. Return only the facts, one per line:\n\n{text}\n\nFacts:'
+            return (
+                f"Context: You are analyzing information for the hypothetical country Atlantis.\n\n{ATLANTIS_CONTEXT}\n\n"
+                f"Based on the following text, identify what information is missing or unknown that would be important for Atlantis:\n\n{text}\n\n"
+                "Missing information:"
+            )
         else:
-            return f'Wyodrębnij kluczowe fakty z następującego tekstu. Zwróć tylko fakty, jeden na linię:\n\n{text}\n\nFakty:'
+            return (
+                f"Kontekst: Analizujesz informacje dla hipotetycznego państwa Atlantis.\n\n{ATLANTIS_CONTEXT}\n\n"
+                f"Na podstawie następującego tekstu zidentyfikuj, jakie informacje brakują lub są nieznane, a które byłyby ważne dla Atlantis:\n\n{text}\n\n"
+                "Brakujące informacje:"
+            )
 
-    def _parse_facts(self, facts_text: str) -> List[str]:
-        """Parse facts from LLM response."""
-        facts = [
-            f.strip()
-            for f in facts_text.split('\n')
-            if f.strip() and not f.strip().startswith('-') and not f.strip().startswith('*')
+    def _parse_unknowns(self, unknowns_text: str) -> List[str]:
+        """Parse unknowns from LLM response."""
+        unknowns = [
+            u.strip()
+            for u in unknowns_text.split('\n')
+            if u.strip() and not u.strip().startswith('-') and not u.strip().startswith('*')
         ]
-        return facts
-
+        return unknowns

@@ -6,6 +6,9 @@ from .scraper_service import ScraperService
 from .fact_extraction_service import FactExtractionService
 from .fact_storage_service import FactStorageService
 from .content_converter_service import ContentConverterService
+from .prediction_service import PredictionService
+from .unknown_service import UnknownService
+from repositories.node_repository import NodeRepository
 
 
 class ProcessingService:
@@ -19,6 +22,9 @@ class ProcessingService:
         self.fact_extraction_service = FactExtractionService()
         self.fact_storage_service = FactStorageService(db_connection)
         self.content_converter = ContentConverterService()
+        self.prediction_service = PredictionService()
+        self.unknown_service = UnknownService()
+        self.node_repository = NodeRepository(db_connection)
 
     # Delegate to JobService
     def create_job(self, items):
@@ -72,6 +78,15 @@ class ProcessingService:
                 # Step 3: Validation
                 if processing_config.get('enable_validation'):
                     self._validate_facts(job_uuid, fact_ids, step_number)
+                    step_number += 1
+            
+            # Step 4: Prediction Extraction
+            self._extract_predictions(job_uuid, items, language, step_number)
+            step_number += 1
+            
+            # Step 5: Unknown Extraction
+            self._extract_unknowns(job_uuid, items, language, step_number)
+            step_number += 1
 
             self.job_service.update_job_status(job_uuid, 'completed')
 
@@ -111,6 +126,12 @@ class ProcessingService:
                     content[:500], item_id, wage, 0.7, language
                 )
                 fact_ids.append(fact_id)
+                
+                # Store fact in nodes
+                self.node_repository.create_node(
+                    'fact', fact, job_uuid,
+                    {'source': 'fact_extraction', 'item_id': item_id, 'language': language}
+                )
 
         self.step_service.update_step(
             step_id, 'completed',

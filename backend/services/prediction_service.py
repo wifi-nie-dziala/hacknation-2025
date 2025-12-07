@@ -1,6 +1,6 @@
-"""Fact extraction service using LLM."""
+"""Prediction extraction service using LLM."""
 import requests
-from typing import List
+from typing import List, Dict
 import config
 
 
@@ -20,21 +20,21 @@ Kamienie milowe w rozwoju politycznym i gospodarczym: demokracja parlamentarna o
 """
 
 
-class FactExtractionService:
-    """Handles LLM-based fact extraction."""
+class PredictionService:
+    """Handles LLM-based prediction extraction (positive and negative)."""
 
-    def extract_facts(self, text: str, language: str = 'en') -> List[str]:
-        """Extract facts from text using LLM."""
+    def extract_predictions(self, text: str, language: str = 'en') -> Dict[str, List[str]]:
+        """Extract positive and negative predictions from text using LLM."""
         if config.LLM_PROVIDER == 'cloudflare':
             return self._extract_with_cloudflare(text, language)
         else:
             return self._extract_with_ollama(text, language)
 
-    def _extract_with_cloudflare(self, text: str, language: str) -> List[str]:
-        """Extract facts using Cloudflare Workers AI."""
+    def _extract_with_cloudflare(self, text: str, language: str) -> Dict[str, List[str]]:
+        """Extract predictions using Cloudflare Workers AI."""
         if not config.CLOUDFLARE_ACCOUNT_ID or not config.CLOUDFLARE_API_TOKEN:
             print("ERROR: Cloudflare credentials not configured")
-            return []
+            return {'positive': [], 'negative': []}
 
         model = config.CLOUDFLARE_MODEL_EN if language == 'en' else config.CLOUDFLARE_MODEL_PL
 
@@ -47,11 +47,15 @@ class FactExtractionService:
 
         system_message = (
             f"You are an expert analyst for the hypothetical country Atlantis. {ATLANTIS_CONTEXT}\n\n"
-            "Extract key facts from text that are relevant to Atlantis. "
-            "Return only the facts, one per line." if language == 'en' else
+            "Extract predictions from the text. Return ONLY predictions related to Atlantis.\n"
+            "Format:\n"
+            "POSITIVE:\n- prediction 1\n- prediction 2\n\n"
+            "NEGATIVE:\n- prediction 1\n- prediction 2" if language == 'en' else
             f"Jesteś ekspertem analitykiem dla hipotetycznego państwa Atlantis. {ATLANTIS_CONTEXT}\n\n"
-            "Wyodrębnij kluczowe fakty z tekstu, które są istotne dla Atlantis. "
-            "Zwróć tylko fakty, jeden na linię."
+            "Wyodrębnij predykcje z tekstu. Zwróć TYLKO predykcje związane z Atlantis.\n"
+            "Format:\n"
+            "POZYTYWNE:\n- predykcja 1\n- predykcja 2\n\n"
+            "NEGATYWNE:\n- predykcja 1\n- predykcja 2"
         )
 
         prompt = self._build_prompt(text, language)
@@ -70,18 +74,18 @@ class FactExtractionService:
             result = response.json()
 
             if result.get("success"):
-                facts_text = result["result"]["response"]
-                return self._parse_facts(facts_text)
+                predictions_text = result["result"]["response"]
+                return self._parse_predictions(predictions_text, language)
             else:
                 print(f"Cloudflare AI error: {result.get('errors')}")
-                return []
+                return {'positive': [], 'negative': []}
 
         except Exception as e:
             print(f"Cloudflare AI extraction error: {e}")
-            return []
+            return {'positive': [], 'negative': []}
 
-    def _extract_with_ollama(self, text: str, language: str) -> List[str]:
-        """Extract facts using local Ollama LLM."""
+    def _extract_with_ollama(self, text: str, language: str) -> Dict[str, List[str]]:
+        """Extract predictions using local Ollama LLM."""
         prompt = self._build_prompt(text, language)
 
         try:
@@ -93,30 +97,59 @@ class FactExtractionService:
 
             if response.status_code == 200:
                 result = response.json()
-                facts_text = result.get('response', '')
-                return self._parse_facts(facts_text)
+                predictions_text = result.get('response', '')
+                return self._parse_predictions(predictions_text, language)
             else:
                 print(f"Ollama extraction error: Status {response.status_code}, Response: {response.text}")
-                return []
+                return {'positive': [], 'negative': []}
 
         except Exception as e:
             print(f"Ollama extraction error: {e}")
 
-        return []
+        return {'positive': [], 'negative': []}
 
     def _build_prompt(self, text: str, language: str) -> str:
         """Build extraction prompt."""
         if language == 'en':
-            return f'Extract key facts from the following text. Return only the facts, one per line:\n\n{text}\n\nFacts:'
+            return (
+                f"Context: You are analyzing information for the hypothetical country Atlantis.\n\n{ATLANTIS_CONTEXT}\n\n"
+                f"Extract positive and negative predictions from the following text that are relevant to Atlantis:\n\n{text}\n\n"
+                "Format:\nPOSITIVE:\n- prediction 1\n- prediction 2\n\nNEGATIVE:\n- prediction 1\n- prediction 2"
+            )
         else:
-            return f'Wyodrębnij kluczowe fakty z następującego tekstu. Zwróć tylko fakty, jeden na linię:\n\n{text}\n\nFakty:'
+            return (
+                f"Kontekst: Analizujesz informacje dla hipotetycznego państwa Atlantis.\n\n{ATLANTIS_CONTEXT}\n\n"
+                f"Wyodrębnij pozytywne i negatywne predykcje z następującego tekstu, które są istotne dla Atlantis:\n\n{text}\n\n"
+                "Format:\nPOZYTYWNE:\n- predykcja 1\n- predykcja 2\n\nNEGATYWNE:\n- predykcja 1\n- predykcja 2"
+            )
 
-    def _parse_facts(self, facts_text: str) -> List[str]:
-        """Parse facts from LLM response."""
-        facts = [
-            f.strip()
-            for f in facts_text.split('\n')
-            if f.strip() and not f.strip().startswith('-') and not f.strip().startswith('*')
-        ]
-        return facts
+    def _parse_predictions(self, predictions_text: str, language: str) -> Dict[str, List[str]]:
+        """Parse predictions from LLM response."""
+        lines = predictions_text.split('\n')
+        
+        positive_markers = ['POSITIVE:', 'POZYTYWNE:']
+        negative_markers = ['NEGATIVE:', 'NEGATYWNE:']
+        
+        positive = []
+        negative = []
+        current_section = None
 
+        for line in lines:
+            line = line.strip()
+            
+            if any(marker in line.upper() for marker in positive_markers):
+                current_section = 'positive'
+                continue
+            elif any(marker in line.upper() for marker in negative_markers):
+                current_section = 'negative'
+                continue
+            
+            if line and (line.startswith('-') or line.startswith('*')):
+                cleaned = line.lstrip('-*').strip()
+                if cleaned:
+                    if current_section == 'positive':
+                        positive.append(cleaned)
+                    elif current_section == 'negative':
+                        negative.append(cleaned)
+
+        return {'positive': positive, 'negative': negative}

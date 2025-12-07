@@ -69,6 +69,7 @@ def get_job_details(job_uuid):
     try:
         conn = get_db_connection()
         processing_service = ProcessingService(conn)
+        node_repo = NodeRepository(conn)
 
         job_status = processing_service.get_job_status(job_uuid)
         if not job_status:
@@ -77,13 +78,27 @@ def get_job_details(job_uuid):
 
         steps = processing_service.get_job_steps(job_uuid)
         facts = processing_service.get_extracted_facts(job_uuid)
+        nodes = node_repo.get_nodes_by_job(job_uuid)
+        
+        # Get relations for all nodes
+        all_relations = []
+        seen_relations = set()
+        for node in nodes:
+            relations = node_repo.get_node_relations(str(node['id']), 'both')
+            for rel in relations:
+                rel_id = str(rel['id'])
+                if rel_id not in seen_relations:
+                    all_relations.append(rel)
+                    seen_relations.add(rel_id)
 
         conn.close()
 
         return jsonify({
             'job': job_status,
             'steps': steps,
-            'facts': facts
+            'facts': facts,
+            'nodes': nodes,
+            'node_relations': all_relations
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
