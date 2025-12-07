@@ -1,6 +1,8 @@
 """Prediction extraction service using LLM."""
 import requests
-from typing import List
+import json
+import re
+from typing import List, Dict, Tuple
 import config
 
 
@@ -30,6 +32,14 @@ class PredictionService:
             return self._extract_with_cloudflare(text, language, facts_context)
         else:
             return self._extract_with_ollama(text, language, facts_context)
+
+    def extract_predictions_with_sources(self, text: str, language: str = 'en', facts_list: List[Dict] = None) -> List[Dict]:
+        """Extract predictions with their source facts."""
+        print(f"[PREDICTION_EXTRACTION] Extracting predictions with sources...", flush=True)
+        if config.LLM_PROVIDER == 'cloudflare':
+            return self._extract_with_sources_cloudflare(text, language, facts_list or [])
+        else:
+            return self._extract_with_sources_ollama(text, language, facts_list or [])
 
     def _extract_with_cloudflare(self, text: str, language: str, facts_context: str = '') -> List[str]:
         """Extract predictions using Cloudflare Workers AI."""
@@ -156,3 +166,131 @@ class PredictionService:
 
         print(f"[PREDICTION_PARSING] Extracted {len(predictions)} predictions", flush=True)
         return predictions
+
+    def _extract_with_sources_cloudflare(self, text: str, language: str, facts_list: List[Dict]) -> List[Dict]:
+        """Extract predictions with source facts using Cloudflare."""
+        if not config.CLOUDFLARE_ACCOUNT_ID or not config.CLOUDFLARE_API_TOKEN:
+            return []
+
+        model = config.CLOUDFLARE_MODEL_EN if language == 'en' else config.CLOUDFLARE_MODEL_PL
+        url = f"https://api.cloudflare.com/client/v4/accounts/{config.CLOUDFLARE_ACCOUNT_ID}/ai/run/{model}"
+
+        headers = {
+            "Authorization": f"Bearer {config.CLOUDFLARE_API_TOKEN}",
+            "Content-Type": "application/json"
+        }
+
+        prompt = self._build_sourced_prompt(text, language, facts_list)
+
+        payload = {
+            "messages": [
+                {"role": "system", "content": self._get_sourced_system_prompt(language)},
+                {"role": "user", "content": prompt}
+            ]
+        }
+
+        try:
+            response = requests.post(url, headers=headers, json=payload, timeout=60)
+            response.raise_for_status()
+            result = response.json()
+            if result.get("success"):
+                return self._parse_sourced_predictions(result["result"]["response"], facts_list)
+        except Exception as e:
+            print(f"Cloudflare sourced extraction error: {e}")
+        return []
+
+    def _extract_with_sources_ollama(self, text: str, language: str, facts_list: List[Dict]) -> List[Dict]:
+        """Extract predictions with source facts using Ollama."""
+        prompt = self._build_sourced_prompt(text, language, facts_list)
+        system_prompt = self._get_sourced_system_prompt(language)
+        full_prompt = f"{system_prompt}\n\n{prompt}"
+
+        try:
+            response = requests.post(
+                f'http://{config.OLLAMA_HOST}:{config.OLLAMA_PORT}/api/generate',
+                json={'model': config.OLLAMA_MODEL, 'prompt': full_prompt, 'stream': False},
+                timeout=120
+            )
+            if response.status_code == 200:
+                result = response.json()
+                return self._parse_sourced_predictions(result.get('response', ''), facts_list)
+        except Exception as e:
+            print(f"Ollama sourced extraction error: {e}")
+        return []
+
+    def _get_sourced_system_prompt(self, language: str) -> str:
+        if language == 'en':
+            return (
+                f"You are an expert analyst for Atlantis. {ATLANTIS_CONTEXT}\n\n"
+                "Extract predictions and identify which facts they are derived from.\n"
+                "Return JSON array with format: [{\"prediction\": \"...\", \"source_fact_ids\": [0, 1]}]\n"
+                "source_fact_ids are indices from the provided facts list."
+            )
+        return (
+            f"Jesteś ekspertem analitykiem dla Atlantis. {ATLANTIS_CONTEXT}\n\n"
+            "Wyodrębnij predykcje i wskaż, z których faktów zostały wyprowadzone.\n"
+            "Zwróć tablicę JSON: [{\"prediction\": \"...\", \"source_fact_ids\": [0, 1]}]\n"
+            "source_fact_ids to indeksy z podanej listy faktów."
+        )
+
+    def _build_sourced_prompt(self, text: str, language: str, facts_list: List[Dict]) -> str:
+        facts_str = "\n".join([f"[{i}] {f.get('fact', f.get('value', ''))}" for i, f in enumerate(facts_list)])
+
+        if language == 'en':
+            return (
+                f"KNOWN FACTS:\n{facts_str}\n\n"
+                f"TEXT TO ANALYZE:\n{text[:8000]}\n\n"
+                "Extract predictions relevant to Atlantis. For each prediction, list the fact indices it was derived from.\n"
+                "Return ONLY valid JSON: [{\"prediction\": \"text\", \"source_fact_ids\": [indices]}]"
+            )
+        return (
+            f"ZNANE FAKTY:\n{facts_str}\n\n"
+            f"TEKST DO ANALIZY:\n{text[:8000]}\n\n"
+            "Wyodrębnij predykcje dla Atlantis. Dla każdej podaj indeksy faktów źródłowych.\n"
+            "Zwróć TYLKO poprawny JSON: [{\"prediction\": \"tekst\", \"source_fact_ids\": [indeksy]}]"
+        )
+
+    def _parse_sourced_predictions(self, response_text: str, facts_list: List[Dict]) -> List[Dict]:
+        print(f"[PREDICTION_PARSING] Parsing sourced response: {response_text[:500]}...", flush=True)
+
+        # Find the JSON array - use greedy match to get the full array
+        json_match = re.search(r'\[[\s\S]*\]', response_text)
+        if not json_match:
+            print(f"[PREDICTION_PARSING] No JSON array found in response", flush=True)
+            return []
+
+        json_str = json_match.group()
+        print(f"[PREDICTION_PARSING] Found JSON: {json_str[:200]}...", flush=True)
+
+        try:
+            predictions_data = json.loads(json_str)
+            if not isinstance(predictions_data, list):
+                print(f"[PREDICTION_PARSING] Parsed JSON is not a list", flush=True)
+                return []
+
+            results = []
+            for item in predictions_data:
+                if not isinstance(item, dict):
+                    continue
+                pred_text = item.get('prediction', '')
+                source_ids = item.get('source_fact_ids', [])
+
+                if not pred_text or len(pred_text.strip()) < 10:
+                    continue
+
+                valid_sources = []
+                for idx in source_ids:
+                    if isinstance(idx, int) and 0 <= idx < len(facts_list):
+                        valid_sources.append(facts_list[idx])
+
+                results.append({
+                    'prediction': pred_text.strip(),
+                    'source_facts': valid_sources
+                })
+
+            print(f"[PREDICTION_PARSING] Extracted {len(results)} predictions with sources", flush=True)
+            return results
+        except json.JSONDecodeError as e:
+            print(f"[PREDICTION_PARSING] JSON parse error: {e}, raw: {json_str[:100]}")
+            return []
+

@@ -92,10 +92,10 @@ GET http://localhost:8080/api/jobs/33333333-3333-3333-3333-333333333333/nodes?ty
 
 ### Get specific node by ID
 ### Example UUID from sample data - get actual UUIDs from the response above
-GET http://localhost:8080/api/nodes/03dd1692-6459-4977-af2a-c4785e4b8c0d
+GET http://localhost:8080/api/nodes/8ad7912c-3b0b-4485-9f9c-846244224d85
 
 ### Get relations for a specific node (both directions)
-GET http://localhost:8080/api/nodes/03dd1692-6459-4977-af2a-c4785e4b8c0d/relations
+GET http://localhost:8080/api/nodes/8ad7912c-3b0b-4485-9f9c-846244224d85/relations
 
 ### Get incoming relations for a specific node
 GET http://localhost:8080/api/nodes/03dd1692-6459-4977-af2a-c4785e4b8c0d/relations?direction=incoming

@@ -108,11 +108,35 @@ def get_job_details(job_uuid):
 def get_all_jobs():
     try:
         limit = request.args.get('limit', 100, type=int)
+        include_nodes = request.args.get('include_nodes', 'false').lower() == 'true'
 
         conn = get_db_connection()
         processing_service = ProcessingService(conn)
+        node_repo = NodeRepository(conn)
 
         jobs = processing_service.get_all_jobs(limit)
+
+        if include_nodes:
+            for job in jobs:
+                job_uuid = job['job_uuid']
+                nodes = node_repo.get_nodes_by_job(job_uuid)
+
+                job['node_counts'] = {
+                    'fact': sum(1 for n in nodes if n['type'] == 'fact'),
+                    'prediction': sum(1 for n in nodes if n['type'] == 'prediction'),
+                    'missing_information': sum(1 for n in nodes if n['type'] == 'missing_information'),
+                    'total': len(nodes)
+                }
+
+                relation_count = 0
+                seen = set()
+                for node in nodes:
+                    rels = node_repo.get_node_relations(str(node['id']), 'both')
+                    for r in rels:
+                        if str(r['id']) not in seen:
+                            seen.add(str(r['id']))
+                            relation_count += 1
+                job['relation_count'] = relation_count
 
         conn.close()
 
