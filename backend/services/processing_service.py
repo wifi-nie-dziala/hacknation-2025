@@ -59,42 +59,56 @@ class ProcessingService:
         step_number = 1
         language = processing_config.get('language', 'en')
 
+        print(f"[JOB {job_uuid}] Starting processing with config: {processing_config}", flush=True)
+
         try:
             self.job_service.update_job_status(job_uuid, 'processing')
             self.conn.commit()
 
             job_status = self.job_service.get_job_status(job_uuid)
             if not job_status:
+                print(f"[JOB {job_uuid}] ERROR: Job not found", flush=True)
                 return
 
             items = job_status['items']
-            
+            print(f"[JOB {job_uuid}] Found {len(items)} items to process", flush=True)
+
             # Step 1: Fact Extraction
+            print(f"[JOB {job_uuid}] === STEP 1: FACT EXTRACTION ===", flush=True)
             fact_ids = self._extract_facts(
                 job_uuid, items, language, step_number
             )
             self.conn.commit()
+            print(f"[JOB {job_uuid}] STEP 1 COMPLETE: Extracted {len(fact_ids)} facts", flush=True)
             step_number += 1
 
             # Step 2: Validation
+            print(f"[JOB {job_uuid}] === STEP 2: VALIDATION ===", flush=True)
             self._validate_facts(job_uuid, fact_ids, step_number)
             self.conn.commit()
+            print(f"[JOB {job_uuid}] STEP 2 COMPLETE: Validated {len(fact_ids)} facts", flush=True)
             step_number += 1
             
             # Step 3: Prediction Extraction
+            print(f"[JOB {job_uuid}] === STEP 3: PREDICTION EXTRACTION ===", flush=True)
             self._extract_predictions(job_uuid, items, language, step_number)
             self.conn.commit()
+            print(f"[JOB {job_uuid}] STEP 3 COMPLETE: Predictions extracted", flush=True)
             step_number += 1
 
             # Step 4: Unknown Extraction
+            print(f"[JOB {job_uuid}] === STEP 4: UNKNOWN EXTRACTION ===", flush=True)
             self._extract_unknowns(job_uuid, items, language, step_number)
             self.conn.commit()
+            print(f"[JOB {job_uuid}] STEP 4 COMPLETE: Unknowns extracted", flush=True)
             step_number += 1
 
             self.job_service.update_job_status(job_uuid, 'completed')
             self.conn.commit()
+            print(f"[JOB {job_uuid}] === JOB COMPLETED SUCCESSFULLY ===", flush=True)
 
         except Exception as e:
+            print(f"[JOB {job_uuid}] === JOB FAILED: {str(e)} ===", flush=True)
             self.conn.rollback()
             self.job_service.update_job_status(job_uuid, 'failed', str(e))
             self.conn.commit()
@@ -114,17 +128,22 @@ class ProcessingService:
         fact_ids = []
         total_facts = 0
 
-        for item in items:
+        for idx, item in enumerate(items):
             item_id = item['id']
+            item_type = item.get('item_type', 'unknown')
             wage = item.get('wage')
+            print(f"[STEP {step_number}] Processing item {idx+1}/{len(items)}: id={item_id}, type={item_type}", flush=True)
 
             converted_items = self.content_converter.convert_items_to_text([item])
             if not converted_items or not converted_items[0].get('conversion_success', True):
+                print(f"[STEP {step_number}] Item {item_id} conversion failed, skipping", flush=True)
                 continue
 
             content = converted_items[0]['content'][:10000]
+            print(f"[STEP {step_number}] Item {item_id} content length: {len(content)} chars", flush=True)
 
             facts = self.fact_extraction_service.extract_facts(content, language)
+            print(f"[STEP {step_number}] Item {item_id} extracted {len(facts)} facts", flush=True)
             total_facts += len(facts)
 
             for fact in facts[:20]:
@@ -144,7 +163,7 @@ class ProcessingService:
             step_id, 'completed',
             {'facts_extracted': total_facts}
         )
-        print(f"[STEP {step_number}] Completed fact extraction: {total_facts} facts extracted", flush=True)
+        print(f"[STEP {step_number}] Completed fact extraction: {total_facts} facts extracted, {len(fact_ids)} stored", flush=True)
 
         return fact_ids
 
@@ -195,44 +214,70 @@ class ProcessingService:
 
         combined_content = "\n\n---\n\n".join(all_content)
 
+        # Try to extract predictions with sources first
         predictions_with_sources = self.prediction_service.extract_predictions_with_sources(
             combined_content, language, facts_data[:30]
         )
 
-        if not predictions_with_sources:
-            print(f"[STEP {step_number}] No predictions extracted, skipping node creation", flush=True)
-
         prediction_count = 0
         relation_count = 0
-        for pred_data in predictions_with_sources[:30]:
-            pred_text = pred_data.get('prediction', '')
-            source_facts = pred_data.get('source_facts', [])
 
-            if pred_text and len(pred_text.strip()) > 10:
-                pred_node_id = self.node_repository.create_node(
-                    'prediction', pred_text, job_uuid,
-                    {'source': 'prediction_extraction', 'language': language, 'source_count': len(source_facts)}
-                )
-                prediction_count += 1
+        if predictions_with_sources:
+            print(f"[STEP {step_number}] Got {len(predictions_with_sources)} predictions with sources", flush=True)
+            for pred_data in predictions_with_sources[:30]:
+                pred_text = pred_data.get('prediction', '')
+                source_facts = pred_data.get('source_facts', [])
 
-                for src_fact in source_facts:
-                    # src_fact comes from facts_data which has 'fact' key
-                    fact_text = src_fact.get('fact', '')[:100]
-                    if fact_text in fact_node_map:
-                        fact_node = fact_node_map[fact_text]
-                        self.node_repository.create_relation(
-                            pred_node_id, str(fact_node['id']), 'derived_from', 0.8
+                if pred_text and len(pred_text.strip()) > 10:
+                    pred_node_id = self.node_repository.create_node(
+                        'prediction', pred_text, job_uuid,
+                        {'source': 'prediction_extraction', 'language': language, 'source_count': len(source_facts)}
+                    )
+                    prediction_count += 1
+
+                    for src_fact in source_facts:
+                        fact_text = src_fact.get('fact', '')[:100]
+                        if fact_text in fact_node_map:
+                            fact_node = fact_node_map[fact_text]
+                            self.node_repository.create_relation(
+                                pred_node_id, str(fact_node['id']), 'derived_from', 0.8
+                            )
+                            relation_count += 1
+                            print(f"[RELATION] Created derived_from: prediction -> fact", flush=True)
+                        else:
+                            print(f"[RELATION] No matching fact node for: {fact_text[:50]}...", flush=True)
+        else:
+            # Fallback: use old method and link all predictions to all facts
+            print(f"[STEP {step_number}] Sourced extraction failed, using fallback method", flush=True)
+            facts_context = "\n".join([f"- {f['fact']}" for f in facts_data[:30]])
+            predictions = self.prediction_service.extract_predictions(combined_content, language, facts_context)
+
+            if predictions:
+                print(f"[STEP {step_number}] Fallback extracted {len(predictions)} predictions", flush=True)
+                for pred in predictions[:30]:
+                    if pred and len(pred.strip()) > 10:
+                        pred_node_id = self.node_repository.create_node(
+                            'prediction', pred, job_uuid,
+                            {'source': 'prediction_extraction_fallback', 'language': language}
                         )
-                        relation_count += 1
-                        print(f"[RELATION] Created derived_from: prediction -> fact", flush=True)
-                    else:
-                        print(f"[RELATION] No matching fact node for: {fact_text[:50]}...", flush=True)
+                        prediction_count += 1
+
+                        # Link to first few facts as general sources
+                        for fact_node in list(fact_nodes)[:3]:
+                            self.node_repository.create_relation(
+                                pred_node_id, str(fact_node['id']), 'derived_from', 0.5
+                            )
+                            relation_count += 1
+                        print(f"[RELATION] Created {min(3, len(fact_nodes))} fallback relations for prediction", flush=True)
+            else:
+                print(f"[STEP {step_number}] No predictions extracted from either method", flush=True)
 
         self.step_service.update_step(
             step_id, 'completed',
             {'predictions_extracted': prediction_count, 'relations_created': relation_count}
         )
-        print(f"[STEP {step_number}] Completed prediction extraction: {prediction_count} predictions, {relation_count} relations", flush=True)
+        print(f"[STEP {step_number}] Completed prediction extraction: {prediction_count} predictions, {relation_count} relations created", flush=True)
+        print(f"[STEP {step_number}] Prediction summary: LLM returned {len(predictions_with_sources)} predictions with sources", flush=True)
 
     def _extract_unknowns(self, job_uuid: str, items: list, language: str, step_number: int):
         """Extract unknowns with context from extracted facts."""
@@ -256,22 +301,26 @@ class ProcessingService:
                 all_content.append(converted_items[0]['content'][:5000])
 
         combined_content = "\n\n---\n\n".join(all_content)
+        print(f"[STEP {step_number}] Combined content length: {len(combined_content)} chars", flush=True)
 
         unknowns = self.unknown_service.extract_unknowns(combined_content, language, facts_context)
+        print(f"[STEP {step_number}] LLM returned {len(unknowns) if unknowns else 0} unknowns", flush=True)
 
         if not unknowns:
             print(f"[STEP {step_number}] No unknowns extracted, skipping node creation", flush=True)
 
+        unknown_count = 0
         for unknown in unknowns[:30]:
             if unknown and len(unknown.strip()) > 10:
                 self.node_repository.create_node(
                     'missing_information', unknown, job_uuid,
                     {'source': 'unknown_extraction', 'language': language}
                 )
+                unknown_count += 1
 
         self.step_service.update_step(
             step_id, 'completed',
-            {'unknowns_extracted': len(unknowns[:30])}
+            {'unknowns_extracted': unknown_count}
         )
-        print(f"[STEP {step_number}] Completed unknown extraction: {len(unknowns[:30])} unknowns", flush=True)
+        print(f"[STEP {step_number}] Completed unknown extraction: {unknown_count} unknowns stored", flush=True)
 
