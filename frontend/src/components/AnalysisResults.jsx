@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { Loader2, CheckCircle2, XCircle, Clock } from 'lucide-react';
+import { Loader2, CheckCircle2, XCircle, Clock, Download } from 'lucide-react';
 
 export default function AnalysisResults() {
   const { id } = useParams();
@@ -8,6 +8,34 @@ export default function AnalysisResults() {
   const [jobData, setJobData] = useState(null);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+
+  const isBase64 = (str) => {
+    if (!str || str.length < 100) return false;
+    const base64Pattern = /^[A-Za-z0-9+/]+={0,2}$/;
+    return base64Pattern.test(str.substring(0, 200));
+  };
+
+  const downloadBase64File = (base64Content, itemId) => {
+    try {
+      const byteCharacters = atob(base64Content);
+      const byteNumbers = new Array(byteCharacters.length);
+      for (let i = 0; i < byteCharacters.length; i++) {
+        byteNumbers[i] = byteCharacters.charCodeAt(i);
+      }
+      const byteArray = new Uint8Array(byteNumbers);
+      const blob = new Blob([byteArray], { type: 'application/octet-stream' });
+      const url = window.URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `file-${itemId}.pdf`;
+      document.body.appendChild(a);
+      a.click();
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    } catch (e) {
+      console.error('Failed to download file:', e);
+    }
+  };
 
   const fetchJobStatus = async () => {
     try {
@@ -177,7 +205,19 @@ export default function AnalysisResults() {
                   {item.status}
                 </span>
               </div>
-              <p className="text-sm text-gray-600 truncate">{item.content}</p>
+              <div className="text-sm text-gray-600">
+                {item.type === 'file' && isBase64(item.content) ? (
+                  <button
+                    onClick={() => downloadBase64File(item.content, item.id)}
+                    className="inline-flex items-center gap-2 px-3 py-1 bg-blue-100 text-blue-700 rounded hover:bg-blue-200 transition"
+                  >
+                    <Download size={16} />
+                    Download file
+                  </button>
+                ) : (
+                  <p className="truncate">{item.content}</p>
+                )}
+              </div>
               {item.wage && (
                 <p className="text-xs text-gray-500 mt-1">Waga: {item.wage}</p>
               )}
