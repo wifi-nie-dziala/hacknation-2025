@@ -1,0 +1,1083 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="UTF-8">
+<title>S.I.K.O.R.K.A. - Specyfikacja Techniczna</title>
+<style>
+body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Helvetica, Arial, sans-serif; max-width: 900px; margin: 0 auto; padding: 40px; line-height: 1.6; color: #333; }
+h1 { border-bottom: 2px solid #2ea44f; padding-bottom: 10px; color: #24292e; }
+h2 { border-bottom: 1px solid #eaecef; padding-bottom: 8px; margin-top: 40px; color: #24292e; }
+h3 { color: #24292e; margin-top: 30px; }
+table { border-collapse: collapse; width: 100%; margin: 20px 0; }
+th, td { border: 1px solid #dfe2e5; padding: 10px 14px; text-align: left; }
+th { background: #f6f8fa; font-weight: 600; }
+tr:nth-child(even) { background: #f8f9fa; }
+pre { background: #f6f8fa; padding: 16px; overflow-x: auto; border-radius: 6px; border: 1px solid #e1e4e8; font-size: 12px; }
+code { background: #f6f8fa; padding: 2px 6px; border-radius: 3px; font-family: SFMono-Regular, Consolas, "Liberation Mono", Menlo, monospace; font-size: 85%; }
+pre code { background: none; padding: 0; font-size: 90%; }
+img { max-width: 100%; display: block; margin: 20px auto; }
+hr { border: none; border-top: 1px solid #eaecef; margin: 30px 0; }
+a { color: #0366d6; text-decoration: none; }
+a:hover { text-decoration: underline; }
+blockquote { border-left: 4px solid #dfe2e5; padding-left: 16px; color: #6a737d; margin: 16px 0; }
+nav ol { padding-left: 25px; }
+nav a { color: #24292e; }
+nav a:hover { color: #0366d6; }
+@media print {
+  body { padding: 20px; }
+  pre { white-space: pre-wrap; word-wrap: break-word; }
+  a { color: #24292e; }
+}
+@page { margin: 2cm; }
+</style>
+</head>
+<body>
+
+<div style="text-align: center; padding: 60px 0; page-break-after: always;">
+    <h1 style="font-size: 3em; border: none; margin-bottom: 10px;">S.I.K.O.R.K.A.</h1>
+    <h3 style="color: #666; font-weight: normal;"><strong>S</strong>ystem <strong>I</strong>nteligentnej <strong>K</strong>ompilacji <strong>O</strong>pinii, <strong>R</strong>aportów, <strong>K</strong>onfiguracji i <strong>A</strong>naliz</h3>
+    <br/>
+    <img src="Logo.png" alt="S.I.K.O.R.K.A. Logo" style="width: 350px; margin: 30px auto; display: block;"/>
+</div>
+
+<div style="text-align: center; padding: 100px 0; page-break-after: always;">
+    <h1 style="font-size: 2.5em; border: none; margin-bottom: 30px;">Specyfikacja Techniczna</h1>
+    <hr style="width: 50%; margin: 30px auto;"/>
+    <table style="margin: 0 auto; border: none; width: auto;">
+        <tr><td style="border: none; text-align: right; padding-right: 20px;"><strong>Wersja</strong></td><td style="border: none;">1.0</td></tr>
+        <tr><td style="border: none; text-align: right; padding-right: 20px;"><strong>Data</strong></td><td style="border: none;">Grudzień 2025</td></tr>
+        <tr><td style="border: none; text-align: right; padding-right: 20px;"><strong>Zespół</strong></td><td style="border: none;">Wifi nie działa</td></tr>
+        <tr><td style="border: none; text-align: right; padding-right: 20px;"><strong>Hackathon</strong></td><td style="border: none;">Hacknation/Scenariusze Jutra</td></tr>
+    </table>
+    <br/><br/>
+    <p style="font-style: italic; color: #666;">„Mała, ale inteligentna – jak sikorka, która szybko przetwarza informacje z otoczenia"</p>
+</div>
+
+<div style="page-break-after: always;">
+<h2 style="border-bottom: 2px solid #2ea44f;">Spis Treści</h2>
+<nav style="line-height: 2;">
+<ol style="list-style-type: decimal;">
+    <li><a href="#1-wprowadzenie">Wprowadzenie</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#11-nazwa-projektu">Nazwa Projektu</a></li>
+            <li><a href="#12-cel-projektu">Cel Projektu</a></li>
+            <li><a href="#13-potencjal-wdrozeniowy">Potencjał Wdrożeniowy</a></li>
+        </ol>
+    </li>
+    <li><a href="#2-architektura-systemu">Architektura Systemu</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#21-diagram-c4-poziom-kontekstu">Diagram C4 – Poziom Kontekstu</a></li>
+            <li><a href="#22-diagram-c4-poziom-kontenerow">Diagram C4 – Poziom Kontenerów</a></li>
+            <li><a href="#23-diagram-c4-poziom-komponentow-backend">Diagram C4 – Poziom Komponentów</a></li>
+        </ol>
+    </li>
+    <li><a href="#3-diagram-sekwencji-submit-job-flow">Diagram Sekwencji – Submit Job Flow</a></li>
+    <li><a href="#4-obslugiwane-formaty-danych">Obsługiwane Formaty Danych</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#41-dokumenty">Dokumenty</a></li>
+            <li><a href="#42-zrodla-webowe">Źródła Webowe</a></li>
+        </ol>
+    </li>
+    <li><a href="#5-stos-technologiczny">Stos Technologiczny</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#51-frontend">Frontend</a></li>
+            <li><a href="#52-backend">Backend</a></li>
+            <li><a href="#53-baza-danych">Baza Danych</a></li>
+            <li><a href="#54-llm-ai">LLM & AI</a></li>
+        </ol>
+    </li>
+    <li><a href="#6-model-danych">Model Danych</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#61-diagram-erd">Diagram ERD</a></li>
+            <li><a href="#62-typy-wezlow-nodes">Typy Węzłów</a></li>
+            <li><a href="#63-typy-relacji">Typy Relacji</a></li>
+        </ol>
+    </li>
+    <li><a href="#7-api-endpoints">API Endpoints</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#71-glowne-endpointy">Główne Endpointy</a></li>
+            <li><a href="#72-przyklad-requestresponse">Przykład Request/Response</a></li>
+        </ol>
+    </li>
+    <li><a href="#8-pipeline-przetwarzania">Pipeline Przetwarzania</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#81-szczegoly-krokow">Szczegóły Kroków</a></li>
+        </ol>
+    </li>
+    <li><a href="#9-struktura-raportu">Struktura Raportu</a></li>
+    <li><a href="#10-konfiguracja-i-deployment">Konfiguracja i Deployment</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#101-zmienne-srodowiskowe">Zmienne Środowiskowe</a></li>
+            <li><a href="#102-uruchomienie">Uruchomienie</a></li>
+            <li><a href="#103-wymagania-sprzetowe">Wymagania Sprzętowe</a></li>
+        </ol>
+    </li>
+    <li><a href="#11-bezpieczenstwo">Bezpieczeństwo</a></li>
+    <li><a href="#12-analiza-kosztow-llm">Analiza Kosztów LLM</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#121-cloudflare-workers-ai">Cloudflare Workers AI</a></li>
+            <li><a href="#122-self-hosted-ollama">Self-Hosted (Ollama)</a></li>
+            <li><a href="#123-rekomendacja">Rekomendacja</a></li>
+        </ol>
+    </li>
+    <li><a href="#13-rozszerzalnosc">Rozszerzalność</a>
+        <ol style="list-style-type: decimal; margin-left: 20px;">
+            <li><a href="#131-latwa-podmiana-llm">Łatwa Podmiana LLM</a></li>
+            <li><a href="#132-dodawanie-nowych-formatow">Dodawanie Nowych Formatów</a></li>
+            <li><a href="#133-graf-wiedzy">Graf Wiedzy</a></li>
+        </ol>
+    </li>
+    <li><a href="#14-podsumowanie">Podsumowanie</a></li>
+</ol>
+</nav>
+</div>
+<h2 id="1-wprowadzenie">1. Wprowadzenie</h2>
+<h3 id="11-nazwa-projektu">1.1 Nazwa Projektu</h3>
+<p><strong>S.I.K.O.R.K.A.</strong> – <strong>S</strong>ystem <strong>I</strong>nteligentnej <strong>K</strong>ompilacji <strong>O</strong>pinii, <strong>R</strong>aportów, <strong>K</strong>onfiguracji i <strong>A</strong>naliz</p>
+<p>Nazwa projektu nawiązuje do ptaka sikorki – małego, ale niezwykle inteligentnego i adaptacyjnego stworzenia, które potrafi szybko przetwarzać informacje z otoczenia i dostosowywać swoje zachowanie. Podobnie nasz system szybko przetwarza różnorodne źródła danych i adaptuje się do potrzeb analityka.</p>
+<h3 id="12-cel-projektu">1.2 Cel Projektu</h3>
+<p>System <strong>S.I.K.O.R.K.A.</strong> to narzędzie analityczne wykorzystujące modele LLM (Large Language Models) do automatycznej ekstrakcji faktów, generowania predykcji i tworzenia raportów analitycznych dla fikcyjnego państwa <strong>Atlantis</strong>. System wspiera proces podejmowania decyzji strategicznych poprzez:</p>
+<ul>
+<li>Automatyczną ekstrakcję kluczowych faktów z różnorodnych źródeł</li>
+<li>Identyfikację potencjalnych scenariuszy (pozytywnych i negatywnych)</li>
+<li>Wykrywanie brakujących informacji (unknowns)</li>
+<li>Generowanie kompleksowych raportów z rekomendacjami</li>
+</ul>
+<h3 id="13-potencja-wdrozeniowy">1.3 Potencjał Wdrożeniowy</h3>
+<table>
+<thead>
+<tr>
+<th>Aspekt</th>
+<th>Opis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>Konteneryzacja</strong></td>
+<td>Pełna konteneryzacja Docker – system działa na dowolnej infrastrukturze wspierającej Docker</td>
+</tr>
+<tr>
+<td><strong>Modele Open Source</strong></td>
+<td>Wykorzystanie wyłącznie modeli open-source (Llama 3.1, Qwen3) – brak vendor lock-in</td>
+</tr>
+<tr>
+<td><strong>Elastyczność LLM</strong></td>
+<td>Prosty mechanizm podmiany providera LLM (zmienna <code>LLM_PROVIDER</code>)</td>
+</tr>
+<tr>
+<td><strong>Koszty</strong></td>
+<td>Podczas intensywnych testów zużyto ~10k neuronów Cloudflare (~$0.11)</td>
+</tr>
+<tr>
+<td><strong>Self-hosting</strong></td>
+<td>Możliwość hostowania własnego LLM (Ollama) z określonym, skalowalnym kosztem</td>
+</tr>
+<tr>
+<td><strong>Skalowalność</strong></td>
+<td>Architektura mikroserwisowa umożliwia niezależne skalowanie komponentów</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<div style="page-break-before: always;"></div><h2 id="2-architektura-systemu">2. Architektura Systemu</h2>
+<h3 id="21-diagram-c4-poziom-kontekstu">2.1 Diagram C4 – Poziom Kontekstu</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
+│                              SYSTEM CONTEXT                                  │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                              ┌──────────────────┐
+                              │     Analityk     │
+                              │   (Użytkownik)   │
+                              └────────┬─────────┘
+                                       │
+                              Przegląda raporty,
+                             Dodaje źródła danych
+                                       │
+                                       ▼
+                        ┌──────────────────────────┐
+                        │      S.I.K.O.R.K.A.      │
+                        │   [System Software]      │
+                        │                          │
+                        │  Analizuje dokumenty,    │
+                        │  ekstrahuje fakty,       │
+                        │  generuje scenariusze    │
+                        │  i rekomendacje          │
+                        └──────────────────────────┘
+                                       │
+               ┌───────────────────────┼───────────────────────┐
+               │                       │                       │
+               ▼                       ▼                       ▼
+    ┌──────────────────┐   ┌──────────────────┐   ┌──────────────────┐
+    │  Cloudflare AI   │   │   Strony WWW     │   │    Dokumenty     │
+    │  [External LLM]  │   │  [External]      │   │   PDF/DOCX/PPTX  │
+    └──────────────────┘   └──────────────────┘   └──────────────────┘
+</code></pre>
+<h3 id="22-diagram-c4-poziom-kontenerow">2.2 Diagram C4 – Poziom Kontenerów</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
+│                          CONTAINER DIAGRAM                                   │
+│                       Docker Network: hacknation-network                     │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+                              ┌──────────────────┐
+                              │     Analityk     │
+                              └────────┬─────────┘
+                                       │ HTTP
+                                       ▼
+          ┌────────────────────────────────────────────────────────┐
+          │                                                        │
+          │    ┌─────────────────┐              ┌─────────────────┐│
+          │    │    Frontend     │              │    Backend      ││
+          │    │  [React + Nginx]│◄────────────►│ [Flask+Gunicorn]││
+          │    │   Port: 3000    │   REST API   │   Port: 8080    ││
+          │    └─────────────────┘              └────────┬────────┘│
+          │                                              │         │
+          │           ┌──────────────────────────────────┼─────────┤
+          │           │                                  │         │
+          │           ▼                                  ▼         │
+          │  ┌─────────────────┐              ┌─────────────────┐  │
+          │  │   PostgreSQL    │              │   Embeddings    │  │
+          │  │   + pgvector    │              │   [Sentence     │  │
+          │  │   Port: 5432    │              │   Transformers] │  │
+          │  └─────────────────┘              │   Port: 5001    │  │
+          │                                   └─────────────────┘  │
+          └────────────────────────────────────────────────────────┘
+                              │
+                              │ HTTPS (External API)
+                              ▼
+                    ┌─────────────────┐
+                    │  Cloudflare AI  │
+                    │  Workers (LLM)  │
+                    │  Llama 3.1 70B  │
+                    └─────────────────┘
+                              │
+                     Alternatywnie:
+                              │
+                    ┌─────────────────┐
+                    │   Ollama LLM    │
+                    │   (Self-hosted) │
+                    │   Port: 11434   │
+                    └─────────────────┘
+</code></pre>
+<h3 id="23-diagram-c4-poziom-komponentow-backend">2.3 Diagram C4 – Poziom Komponentów (Backend)</h3>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────────┐
+│                        COMPONENT DIAGRAM - BACKEND                           │
+└─────────────────────────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                           Flask Application                                  │
+│                                                                              │
+│  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐  ┌───────────────┐ │
+│  │  /api/submit  │  │ /api/jobs/:id │  │  /api/nodes   │  │    /health    │ │
+│  │   [Endpoint]  │  │   [Endpoint]  │  │   [Endpoint]  │  │   [Endpoint]  │ │
+│  └───────┬───────┘  └───────┬───────┘  └───────┬───────┘  └───────────────┘ │
+│          │                  │                  │                             │
+│          ▼                  ▼                  ▼                             │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                      ProcessingService                                 │  │
+│  │                    [Orchestrator Pattern]                              │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+│          │                                                                   │
+│          ├─────────────┬─────────────┬─────────────┬─────────────┐          │
+│          ▼             ▼             ▼             ▼             ▼          │
+│  ┌─────────────┐┌─────────────┐┌─────────────┐┌─────────────┐┌─────────────┐│
+│  │  Content    ││   Fact      ││ Prediction  ││  Unknown    ││   Report    ││
+│  │  Converter  ││ Extraction  ││  Service    ││  Service    ││ Generation  ││
+│  │  Service    ││  Service    ││             ││             ││  Service    ││
+│  └──────┬──────┘└──────┬──────┘└──────┬──────┘└──────┬──────┘└──────┬──────┘│
+│         │              │              │              │              │        │
+│         ▼              └──────────────┴──────────────┴──────────────┘        │
+│  ┌─────────────┐                         │                                   │
+│  │ Playwright  │                         ▼                                   │
+│  │ MarkItDown  │              ┌─────────────────────┐                        │
+│  └─────────────┘              │    LLM Provider     │                        │
+│                               │ (Cloudflare/Ollama) │                        │
+│                               └─────────────────────┘                        │
+│                                                                              │
+│  ┌───────────────────────────────────────────────────────────────────────┐  │
+│  │                         Repositories Layer                             │  │
+│  │  ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐ ┌──────────┐     │  │
+│  │  │   Job    │ │   Item   │ │   Fact   │ │   Node   │ │   Step   │     │  │
+│  │  │   Repo   │ │   Repo   │ │   Repo   │ │   Repo   │ │   Repo   │     │  │
+│  │  └──────────┘ └──────────┘ └──────────┘ └──────────┘ └──────────┘     │  │
+│  └───────────────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────────────┘
+</code></pre>
+<hr />
+<div style="page-break-before: always;"></div><h2 id="3-diagram-sekwencji-submit-job-flow">3. Diagram Sekwencji – Submit Job Flow</h2>
+<pre><code>┌────────┐     ┌────────┐     ┌───────────────┐     ┌──────────┐     ┌─────┐
+│ User   │     │Frontend│     │    Backend    │     │   LLM    │     │ DB  │
+└───┬────┘     └───┬────┘     └───────┬───────┘     └────┬─────┘     └──┬──┘
+    │              │                  │                  │              │
+    │  Upload Files/URLs/Text         │                  │              │
+    │─────────────►│                  │                  │              │
+    │              │                  │                  │              │
+    │              │ POST /api/submit │                  │              │
+    │              │  {items, config} │                  │              │
+    │              │─────────────────►│                  │              │
+    │              │                  │                  │              │
+    │              │                  │ INSERT job       │              │
+    │              │                  │─────────────────────────────────►│
+    │              │                  │                  │              │
+    │              │                  │ job_uuid         │              │
+    │              │                  │◄─────────────────────────────────│
+    │              │                  │                  │              │
+    │              │ 201 {job_uuid}   │                  │              │
+    │              │◄─────────────────│                  │              │
+    │              │                  │                  │              │
+    │              │                  │────┐             │              │
+    │              │                  │    │ Start       │              │
+    │              │                  │◄───┘ Background  │              │
+    │              │                  │      Thread      │              │
+    │              │                  │                  │              │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │ ║ STEP 1: Content Conversion  ║ │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │                  │              │
+    │              │                  │ PDF/DOCX → Markdown             │
+    │              │                  │ URL → Playwright → HTML → MD    │
+    │              │                  │                  │              │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │ ║ STEP 2: Fact Extraction     ║ │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │                  │              │
+    │              │                  │ Extract facts    │              │
+    │              │                  │─────────────────►│              │
+    │              │                  │                  │              │
+    │              │                  │ [facts list]     │              │
+    │              │                  │◄─────────────────│              │
+    │              │                  │                  │              │
+    │              │                  │ Store facts as nodes            │
+    │              │                  │─────────────────────────────────►│
+    │              │                  │                  │              │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │ ║ STEP 3: Prediction Extract  ║ │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │                  │              │
+    │              │                  │ Extract predictions             │
+    │              │                  │─────────────────►│              │
+    │              │                  │                  │              │
+    │              │                  │ [predictions]    │              │
+    │              │                  │◄─────────────────│              │
+    │              │                  │                  │              │
+    │              │                  │ Store predictions + relations   │
+    │              │                  │─────────────────────────────────►│
+    │              │                  │                  │              │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │ ║ STEP 4: Unknowns Extraction ║ │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │                  │              │
+    │              │                  │ Identify gaps    │              │
+    │              │                  │─────────────────►│              │
+    │              │                  │                  │              │
+    │              │                  │ [unknowns]       │              │
+    │              │                  │◄─────────────────│              │
+    │              │                  │                  │              │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │ ║ STEP 5: Report Generation   ║ │
+    │              │                  │ ═══════════════════════════════ │
+    │              │                  │                  │              │
+    │              │                  │ Generate report  │              │
+    │              │                  │─────────────────►│              │
+    │              │                  │                  │              │
+    │              │                  │ {summary,        │              │
+    │              │                  │  positive_scenario,             │
+    │              │                  │  negative_scenario,             │
+    │              │                  │  recommendations}│              │
+    │              │                  │◄─────────────────│              │
+    │              │                  │                  │              │
+    │              │                  │ UPDATE job status = completed   │
+    │              │                  │─────────────────────────────────►│
+    │              │                  │                  │              │
+┌───┴────┐     ┌───┴────┐     ┌───────┴───────┐     ┌────┴─────┐     ┌──┴──┐
+│ User   │     │Frontend│     │    Backend    │     │   LLM    │     │ DB  │
+└────────┘     └────────┘     └───────────────┘     └──────────┘     └─────┘
+</code></pre>
+<hr />
+<h2 id="4-obsugiwane-formaty-danych">4. Obsługiwane Formaty Danych</h2>
+<p>System akceptuje różnorodne formaty wejściowe:</p>
+<h3 id="41-dokumenty">4.1 Dokumenty</h3>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Rozszerzenie</th>
+<th>Biblioteka konwersji</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PDF</td>
+<td><code>.pdf</code></td>
+<td>MarkItDown</td>
+</tr>
+<tr>
+<td>Word</td>
+<td><code>.docx</code></td>
+<td>MarkItDown</td>
+</tr>
+<tr>
+<td>PowerPoint</td>
+<td><code>.pptx</code></td>
+<td>MarkItDown</td>
+</tr>
+<tr>
+<td>Excel</td>
+<td><code>.xlsx</code></td>
+<td>MarkItDown</td>
+</tr>
+<tr>
+<td>Tekst</td>
+<td>plain text</td>
+<td>Native</td>
+</tr>
+</tbody>
+</table>
+<h3 id="42-zroda-webowe">4.2 Źródła Webowe</h3>
+<table>
+<thead>
+<tr>
+<th>Typ</th>
+<th>Obsługa</th>
+<th>Technologia</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Strony statyczne</td>
+<td>✅</td>
+<td>requests + BeautifulSoup</td>
+</tr>
+<tr>
+<td>Strony dynamiczne (JS)</td>
+<td>✅</td>
+<td><strong>Playwright</strong> – czeka na pełne załadowanie JS</td>
+</tr>
+<tr>
+<td>SPA (Single Page Apps)</td>
+<td>✅</td>
+<td>Playwright z <code>wait_until='networkidle'</code></td>
+</tr>
+</tbody>
+</table>
+<p><strong>Kluczowa funkcjonalność:</strong> System wykorzystuje Playwright do renderowania stron dynamicznych. Po nawigacji do URL czeka na zakończenie aktywności sieciowej (<code>networkidle</code>), co gwarantuje pobranie treści generowanych przez JavaScript.</p>
+<hr />
+<div style="page-break-before: always;"></div><h2 id="5-stos-technologiczny">5. Stos Technologiczny</h2>
+<h3 id="51-frontend">5.1 Frontend</h3>
+<table>
+<thead>
+<tr>
+<th>Technologia</th>
+<th>Wersja</th>
+<th>Rola</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>React</td>
+<td>18.x</td>
+<td>Framework UI</td>
+</tr>
+<tr>
+<td>Vite</td>
+<td>6.x</td>
+<td>Build tool</td>
+</tr>
+<tr>
+<td>React Router</td>
+<td>6.x</td>
+<td>Routing</td>
+</tr>
+<tr>
+<td>Tailwind CSS</td>
+<td>3.x</td>
+<td>Stylowanie</td>
+</tr>
+<tr>
+<td>Lucide React</td>
+<td>-</td>
+<td>Ikony</td>
+</tr>
+<tr>
+<td>Nginx</td>
+<td>latest</td>
+<td>Production server</td>
+</tr>
+</tbody>
+</table>
+<h3 id="52-backend">5.2 Backend</h3>
+<table>
+<thead>
+<tr>
+<th>Technologia</th>
+<th>Wersja</th>
+<th>Rola</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Python</td>
+<td>3.11+</td>
+<td>Runtime</td>
+</tr>
+<tr>
+<td>Flask</td>
+<td>3.0.0</td>
+<td>Framework API</td>
+</tr>
+<tr>
+<td>Gunicorn</td>
+<td>22.0.0</td>
+<td>WSGI Server (4 workers)</td>
+</tr>
+<tr>
+<td>psycopg2</td>
+<td>2.9.9</td>
+<td>PostgreSQL driver</td>
+</tr>
+<tr>
+<td>pgvector</td>
+<td>0.2.4</td>
+<td>Vector operations</td>
+</tr>
+<tr>
+<td>Playwright</td>
+<td>latest</td>
+<td>Web scraping dynamiczny</td>
+</tr>
+<tr>
+<td>MarkItDown</td>
+<td>latest</td>
+<td>Konwersja dokumentów</td>
+</tr>
+<tr>
+<td>BeautifulSoup4</td>
+<td>4.12.2</td>
+<td>HTML parsing</td>
+</tr>
+</tbody>
+</table>
+<h3 id="53-baza-danych">5.3 Baza Danych</h3>
+<table>
+<thead>
+<tr>
+<th>Technologia</th>
+<th>Wersja</th>
+<th>Rola</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>PostgreSQL</td>
+<td>16</td>
+<td>Główna baza danych</td>
+</tr>
+<tr>
+<td>pgvector</td>
+<td>extension</td>
+<td>Wyszukiwanie wektorowe</td>
+</tr>
+</tbody>
+</table>
+<h3 id="54-llm-ai">5.4 LLM &amp; AI</h3>
+<table>
+<thead>
+<tr>
+<th>Provider</th>
+<th>Model</th>
+<th>Użycie</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Cloudflare Workers AI</td>
+<td>Llama 3.1 70B Instruct</td>
+<td>Główny provider (hostowany)</td>
+</tr>
+<tr>
+<td>Ollama</td>
+<td>Qwen3:30b-a3b / Llama2</td>
+<td>Alternatywny (self-hosted)</td>
+</tr>
+<tr>
+<td>Sentence Transformers</td>
+<td>MiniLM-L12-v2</td>
+<td>Embeddingi multilingwalne</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<div style="page-break-before: always;"></div><h2 id="6-model-danych">6. Model Danych</h2>
+<h3 id="61-diagram-erd">6.1 Diagram ERD</h3>
+<pre><code>┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
+│ processing_jobs  │       │ processing_items │       │ processing_steps │
+├──────────────────┤       ├──────────────────┤       ├──────────────────┤
+│ id (PK)          │──┐    │ id (PK)          │       │ id (PK)          │
+│ job_uuid (UUID)  │  │    │ job_id (FK)      │◄──────│ job_id (FK)      │
+│ status           │  │    │ item_type        │       │ step_number      │
+│ report (JSONB)   │  └───►│ content          │       │ step_type        │
+│ created_at       │       │ wage             │       │ status           │
+│ completed_at     │       │ status           │       │ input_data       │
+│ error_message    │       │ processed_content│       │ output_data      │
+└──────────────────┘       └──────────────────┘       └──────────────────┘
+         │                          │                          │
+         │    ┌─────────────────────┴──────────────────────────┘
+         │    │
+         ▼    ▼
+┌──────────────────┐       ┌──────────────────┐       ┌──────────────────┐
+│ extracted_facts  │       │  scraped_data    │       │     nodes        │
+├──────────────────┤       ├──────────────────┤       ├──────────────────┤
+│ id (PK)          │       │ id (PK)          │       │ id (UUID, PK)    │
+│ job_id (FK)      │       │ job_id (FK)      │       │ type             │
+│ step_id (FK)     │       │ step_id (FK)     │       │ value            │
+│ item_id (FK)     │       │ url              │       │ job_id (FK)      │
+│ fact             │       │ content          │       │ metadata (JSONB) │
+│ wage             │       │ content_type     │       └──────────────────┘
+│ confidence       │       │ status           │                │
+│ is_validated     │       └──────────────────┘                │
+│ language         │                                           ▼
+└──────────────────┘                                ┌──────────────────┐
+                                                    │  node_relations  │
+                                                    ├──────────────────┤
+                                                    │ id (UUID, PK)    │
+                                                    │ source_node_id   │
+                                                    │ target_node_id   │
+                                                    │ relation_type    │
+                                                    │ confidence       │
+                                                    └──────────────────┘
+</code></pre>
+<h3 id="62-typy-wezow-nodes">6.2 Typy Węzłów (Nodes)</h3>
+<table>
+<thead>
+<tr>
+<th>Typ</th>
+<th>Opis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>fact</code></td>
+<td>Wyekstrahowany fakt z dokumentu</td>
+</tr>
+<tr>
+<td><code>prediction</code></td>
+<td>Predykcja/prognoza wynikająca z faktów</td>
+</tr>
+<tr>
+<td><code>missing_information</code></td>
+<td>Zidentyfikowana luka informacyjna</td>
+</tr>
+<tr>
+<td><code>report</code></td>
+<td>Wygenerowany raport końcowy</td>
+</tr>
+</tbody>
+</table>
+<h3 id="63-typy-relacji">6.3 Typy Relacji</h3>
+<table>
+<thead>
+<tr>
+<th>Typ</th>
+<th>Opis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>derived_from</code></td>
+<td>Węzeł wynika z innego węzła</td>
+</tr>
+<tr>
+<td><code>supports</code></td>
+<td>Węzeł wspiera/potwierdza inny węzeł</td>
+</tr>
+<tr>
+<td><code>contradicts</code></td>
+<td>Węzeł jest sprzeczny z innym węzłem</td>
+</tr>
+<tr>
+<td><code>requires</code></td>
+<td>Węzeł wymaga informacji z innego węzła</td>
+</tr>
+<tr>
+<td><code>suggests</code></td>
+<td>Węzeł sugeruje/implikuje inny węzeł</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<div style="page-break-before: always;"></div><h2 id="7-api-endpoints">7. API Endpoints</h2>
+<h3 id="71-gowne-endpointy">7.1 Główne Endpointy</h3>
+<table>
+<thead>
+<tr>
+<th>Metoda</th>
+<th>Endpoint</th>
+<th>Opis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>GET</code></td>
+<td><code>/health</code></td>
+<td>Health check</td>
+</tr>
+<tr>
+<td><code>POST</code></td>
+<td><code>/api/submit</code></td>
+<td>Utworzenie nowego zadania analizy</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/jobs</code></td>
+<td>Lista wszystkich zadań</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/jobs/{uuid}</code></td>
+<td>Szczegóły zadania z faktami, predykcjami i raportem</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/jobs/{uuid}/nodes</code></td>
+<td>Węzły powiązane z zadaniem</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/nodes/{id}</code></td>
+<td>Szczegóły pojedynczego węzła</td>
+</tr>
+<tr>
+<td><code>GET</code></td>
+<td><code>/api/nodes/{id}/relations</code></td>
+<td>Relacje węzła</td>
+</tr>
+</tbody>
+</table>
+<h3 id="72-przykad-requestresponse">7.2 Przykład Request/Response</h3>
+<p><strong>POST /api/submit</strong></p>
+<pre><code class="language-json">{
+  &quot;items&quot;: [
+    {&quot;type&quot;: &quot;text&quot;, &quot;content&quot;: &quot;Treść do analizy&quot;, &quot;wage&quot;: 100},
+    {&quot;type&quot;: &quot;link&quot;, &quot;content&quot;: &quot;https://example.com/article&quot;, &quot;wage&quot;: 80},
+    {&quot;type&quot;: &quot;file&quot;, &quot;content&quot;: &quot;&lt;base64&gt;&quot;, &quot;wage&quot;: 120}
+  ],
+  &quot;processing&quot;: {
+    &quot;enable_scraping&quot;: true,
+    &quot;enable_fact_extraction&quot;: true,
+    &quot;language&quot;: &quot;pl&quot;
+  }
+}
+</code></pre>
+<p><strong>Response:</strong></p>
+<pre><code class="language-json">{
+  &quot;job_uuid&quot;: &quot;a1b2c3d4-e5f6-7890-abcd-ef1234567890&quot;
+}
+</code></pre>
+<hr />
+<div style="page-break-before: always;"></div><h2 id="8-pipeline-przetwarzania">8. Pipeline Przetwarzania</h2>
+<p>System wykonuje 5-etapowy pipeline przetwarzania:</p>
+<pre><code>┌─────────────────────────────────────────────────────────────────────────┐
+│                         PROCESSING PIPELINE                              │
+└─────────────────────────────────────────────────────────────────────────┘
+
+  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+  │   INPUT      │    │   STEP 1     │    │   STEP 2     │
+  │              │───►│   Content    │───►│    Fact      │
+  │  PDF/DOCX/   │    │  Conversion  │    │  Extraction  │
+  │  URL/Text    │    │              │    │              │
+  └──────────────┘    └──────────────┘    └──────────────┘
+                                                 │
+                                                 ▼
+  ┌──────────────┐    ┌──────────────┐    ┌──────────────┐
+  │   OUTPUT     │    │   STEP 5     │    │   STEP 3     │
+  │              │◄───│   Report     │◄───│  Prediction  │
+  │   Report +   │    │  Generation  │    │  Extraction  │
+  │   Graph      │    │              │    │              │
+  └──────────────┘    └──────────────┘    └──────────────┘
+                             ▲                   │
+                             │                   ▼
+                      ┌──────────────┐    ┌──────────────┐
+                      │   STEP 4     │◄───│   STEP 3b    │
+                      │   Unknown    │    │  Validation  │
+                      │  Extraction  │    │              │
+                      └──────────────┘    └──────────────┘
+</code></pre>
+<h3 id="81-szczegoy-krokow">8.1 Szczegóły Kroków</h3>
+<table>
+<thead>
+<tr>
+<th>Krok</th>
+<th>Nazwa</th>
+<th>Opis</th>
+<th>LLM</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td>Content Conversion</td>
+<td>Konwersja PDF/DOCX/URL → Markdown</td>
+<td>❌</td>
+</tr>
+<tr>
+<td>2</td>
+<td>Fact Extraction</td>
+<td>Ekstrakcja kluczowych faktów</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>3</td>
+<td>Prediction Extraction</td>
+<td>Generowanie predykcji na podstawie faktów</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>4</td>
+<td>Unknown Extraction</td>
+<td>Identyfikacja brakujących informacji</td>
+<td>✅</td>
+</tr>
+<tr>
+<td>5</td>
+<td>Report Generation</td>
+<td>Tworzenie raportu JSON ze scenariuszami</td>
+<td>✅</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="9-struktura-raportu">9. Struktura Raportu</h2>
+<p>System generuje raport w formacie JSON:</p>
+<pre><code class="language-json">{
+  &quot;summary&quot;: &quot;Streszczenie danych (max 150 słów) - przejrzyste, user-friendly&quot;,
+  &quot;positive_scenario&quot;: &quot;Scenariusz pozytywny dla Atlantis z korelacjami (200-300 słów)&quot;,
+  &quot;negative_scenario&quot;: &quot;Scenariusz negatywny dla Atlantis z korelacjami (200-300 słów)&quot;,
+  &quot;recommendations&quot;: &quot;Rekomendacje decyzyjne do uniknięcia scenariuszy negatywnych&quot;
+}
+</code></pre>
+<hr />
+<div style="page-break-before: always;"></div><h2 id="10-konfiguracja-i-deployment">10. Konfiguracja i Deployment</h2>
+<h3 id="101-zmienne-srodowiskowe">10.1 Zmienne Środowiskowe</h3>
+<pre><code class="language-bash"># Database
+DB_HOST=database
+DB_PORT=5432
+DB_NAME=hacknation
+DB_USER=postgres
+DB_PASSWORD=postgres
+
+# LLM Provider: 'cloudflare' lub 'ollama'
+LLM_PROVIDER=cloudflare
+
+# Cloudflare Workers AI
+CLOUDFLARE_ACCOUNT_ID=&lt;your-account-id&gt;
+CLOUDFLARE_API_TOKEN=&lt;your-api-token&gt;
+CLOUDFLARE_MODEL_EN=@cf/meta/llama-3.1-70b-instruct
+CLOUDFLARE_MODEL_PL=@cf/meta/llama-3.1-70b-instruct
+
+# Ollama (alternatywnie)
+OLLAMA_HOST=host.docker.internal
+OLLAMA_PORT=11434
+OLLAMA_MODEL=qwen3:30b-a3b
+</code></pre>
+<h3 id="102-uruchomienie">10.2 Uruchomienie</h3>
+<pre><code class="language-bash"># Produkcja (z Cloudflare AI)
+docker-compose up -d
+
+# Produkcja (CPU-only z Ollama)
+docker-compose -f docker-compose.cpu.yml up -d
+
+# Development
+./start.sh
+
+# Health check
+./health-check.sh
+</code></pre>
+<h3 id="103-wymagania-sprzetowe">10.3 Wymagania Sprzętowe</h3>
+<table>
+<thead>
+<tr>
+<th>Komponent</th>
+<th>Minimum</th>
+<th>Zalecane</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>RAM</td>
+<td>8 GB</td>
+<td>16 GB</td>
+</tr>
+<tr>
+<td>Dysk</td>
+<td>20 GB</td>
+<td>50 GB</td>
+</tr>
+<tr>
+<td>CPU</td>
+<td>4 cores</td>
+<td>8 cores</td>
+</tr>
+<tr>
+<td>GPU</td>
+<td>Opcjonalnie</td>
+<td>NVIDIA (dla Ollama)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="11-bezpieczenstwo">11. Bezpieczeństwo</h2>
+<table>
+<thead>
+<tr>
+<th>Aspekt</th>
+<th>Status</th>
+<th>Opis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>CORS</td>
+<td>✅</td>
+<td>Skonfigurowane dla frontendu</td>
+</tr>
+<tr>
+<td>Flask Debug</td>
+<td>✅</td>
+<td>Wyłączone w produkcji</td>
+</tr>
+<tr>
+<td>Secrets</td>
+<td>✅</td>
+<td>Zmienne środowiskowe</td>
+</tr>
+<tr>
+<td>Container Isolation</td>
+<td>✅</td>
+<td>Docker network isolation</td>
+</tr>
+<tr>
+<td>Input Validation</td>
+<td>✅</td>
+<td>Walidacja requestów API</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<div style="page-break-before: always;"></div><h2 id="12-analiza-kosztow-llm">12. Analiza Kosztów LLM</h2>
+<h3 id="121-cloudflare-workers-ai">12.1 Cloudflare Workers AI</h3>
+<table>
+<thead>
+<tr>
+<th>Metryka</th>
+<th>Wartość</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Koszt 10k neuronów</td>
+<td>~$0.11</td>
+</tr>
+<tr>
+<td>Model</td>
+<td>Llama 3.1 70B Instruct</td>
+</tr>
+<tr>
+<td>Latency</td>
+<td>~2-5s per request</td>
+</tr>
+</tbody>
+</table>
+<h3 id="122-self-hosted-ollama">12.2 Self-Hosted (Ollama)</h3>
+<table>
+<thead>
+<tr>
+<th>Konfiguracja</th>
+<th>Koszt miesięczny*</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>GPU Cloud (A100)</td>
+<td>~$1000-2000</td>
+</tr>
+<tr>
+<td>GPU Cloud (A10G)</td>
+<td>~$300-600</td>
+</tr>
+<tr>
+<td>On-premise (RTX 4090)</td>
+<td>Jednorazowo ~$2000</td>
+</tr>
+</tbody>
+</table>
+<p>*Szacunki dla intensywnego użycia</p>
+<h3 id="123-rekomendacja">12.3 Rekomendacja</h3>
+<p>Dla małej skali (hackathon, MVP): <strong>Cloudflare Workers AI</strong> – brak upfront costs, pay-per-use.</p>
+<p>Dla produkcji na większą skalę: <strong>Self-hosted Ollama</strong> – przewidywalny koszt, pełna kontrola.</p>
+<hr />
+<h2 id="13-rozszerzalnosc">13. Rozszerzalność</h2>
+<h3 id="131-atwa-podmiana-llm">13.1 Łatwa Podmiana LLM</h3>
+<p>System obsługuje prostą podmianę providera LLM poprzez zmienną środowiskową <code>LLM_PROVIDER</code>:
+- <code>cloudflare</code> – Cloudflare Workers AI (domyślnie)
+- <code>ollama</code> – Lokalny/self-hosted Ollama</p>
+<h3 id="132-dodawanie-nowych-formatow">13.2 Dodawanie Nowych Formatów</h3>
+<p>Dzięki bibliotece MarkItDown dodanie obsługi nowych formatów wymaga minimalnych zmian w kodzie.</p>
+<h3 id="133-graf-wiedzy">13.3 Graf Wiedzy</h3>
+<p>System wykorzystuje strukturę grafową (nodes + relations) umożliwiającą:
+- Wizualizację powiązań między faktami
+- Śledzenie pochodzenia predykcji
+- Identyfikację konfliktów informacyjnych</p>
+<hr />
+<div style="page-break-before: always;"></div><h2 id="14-podsumowanie">14. Podsumowanie</h2>
+<p><strong>S.I.K.O.R.K.A.</strong> (System Inteligentnej Kompilacji Opinii, Raportów, Konfiguracji i Analiz) to w pełni funkcjonalny system analizy strategicznej wykorzystujący najnowsze osiągnięcia w dziedzinie LLM.</p>
+<h3 id="kluczowe-zalety">Kluczowe zalety:</h3>
+<table>
+<thead>
+<tr>
+<th>#</th>
+<th>Zaleta</th>
+<th>Opis</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>1</td>
+<td><strong>100% Open Source</strong></td>
+<td>Brak zależności od zamkniętych rozwiązań</td>
+</tr>
+<tr>
+<td>2</td>
+<td><strong>Pełna konteneryzacja</strong></td>
+<td>Gotowy do wdrożenia w dowolnej infrastrukturze Docker</td>
+</tr>
+<tr>
+<td>3</td>
+<td><strong>Elastyczny provider LLM</strong></td>
+<td>Łatwa migracja między Cloudflare a self-hosted</td>
+</tr>
+<tr>
+<td>4</td>
+<td><strong>Niskie koszty</strong></td>
+<td>~$0.11 za intensywną sesję testową</td>
+</tr>
+<tr>
+<td>5</td>
+<td><strong>Wieloformatowy input</strong></td>
+<td>PDF, DOCX, PPTX, strony dynamiczne (JS)</td>
+</tr>
+<tr>
+<td>6</td>
+<td><strong>Kompleksowy output</strong></td>
+<td>Fakty, predykcje, brakujące info, raport ze scenariuszami</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<div align="center">
+
+*Dokumentacja wygenerowana: Grudzień 2025*
+
+**S.I.K.O.R.K.A.** – Zespół "Wifi nie działa"
+
+</div>
+</body>
+</html>
