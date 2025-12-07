@@ -25,6 +25,7 @@ class FactExtractionService:
 
     def extract_facts(self, text: str, language: str = 'en') -> List[str]:
         """Extract facts from text using LLM."""
+        print(f"[FACT_EXTRACTION] Calling LLM ({config.LLM_PROVIDER}) for fact extraction...", flush=True)
         if config.LLM_PROVIDER == 'cloudflare':
             return self._extract_with_cloudflare(text, language)
         else:

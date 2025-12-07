@@ -68,23 +68,21 @@ class ProcessingService:
 
             items = job_status['items']
             
-            # Step 2: Fact Extraction
-            if processing_config.get('enable_fact_extraction') and items:
-                fact_ids = self._extract_facts(
-                    job_uuid, items, language, step_number
-                )
-                step_number += 1
+            # Step 1: Fact Extraction
+            fact_ids = self._extract_facts(
+                job_uuid, items, language, step_number
+            )
+            step_number += 1
 
-                # Step 3: Validation
-                if processing_config.get('enable_validation'):
-                    self._validate_facts(job_uuid, fact_ids, step_number)
-                    step_number += 1
+            # Step 2: Validation
+            self._validate_facts(job_uuid, fact_ids, step_number)
+            step_number += 1
             
-            # Step 4: Prediction Extraction
+            # Step 3: Prediction Extraction
             self._extract_predictions(job_uuid, items, language, step_number)
             step_number += 1
             
-            # Step 5: Unknown Extraction
+            # Step 4: Unknown Extraction
             self._extract_unknowns(job_uuid, items, language, step_number)
             step_number += 1
 
@@ -96,6 +94,7 @@ class ProcessingService:
 
     def _extract_facts(self, job_uuid: str, items: list, language: str, step_number: int) -> list:
         """Extract facts from content."""
+        print(f"[STEP {step_number}] Starting fact extraction for {len(items)} items", flush=True)
         step_id = self.step_service.create_step(
             job_uuid, step_number, 'extraction',
             {'item_count': len(items)},
@@ -137,11 +136,13 @@ class ProcessingService:
             step_id, 'completed',
             {'facts_extracted': total_facts}
         )
+        print(f"[STEP {step_number}] Completed fact extraction: {total_facts} facts extracted", flush=True)
 
         return fact_ids
 
     def _validate_facts(self, job_uuid: str, fact_ids: list, step_number: int):
         """Validate and store facts."""
+        print(f"[STEP {step_number}] Starting validation for {len(fact_ids)} facts", flush=True)
         step_id = self.step_service.create_step(
             job_uuid, step_number, 'validation',
             {'fact_count': len(fact_ids)},
@@ -157,4 +158,101 @@ class ProcessingService:
             step_id, 'completed',
             {'validated_facts': len(fact_ids)}
         )
+        print(f"[STEP {step_number}] Completed validation: {len(fact_ids)} facts validated", flush=True)
+
+    def _extract_predictions(self, job_uuid: str, items: list, language: str, step_number: int):
+        """Extract predictions with context from extracted facts."""
+        print(f"[STEP {step_number}] Starting prediction extraction for {len(items)} items", flush=True)
+        step_id = self.step_service.create_step(
+            job_uuid, step_number, 'reasoning',
+            {'item_count': len(items), 'task': 'prediction_extraction'},
+            {'language': language}
+        )
+
+        self.step_service.update_step(step_id, 'processing')
+
+        # Get extracted facts to add as context
+        facts_data = self.fact_storage_service.get_extracted_facts(job_uuid, validated_only=False)
+        facts_context = "\n".join([f"- {f['fact']}" for f in facts_data[:50]])
+        print(f"[STEP {step_number}] Using {len(facts_data)} facts as context for predictions", flush=True)
+
+        total_predictions = 0
+
+        for item in items:
+            item_id = item['id']
+
+            converted_items = self.content_converter.convert_items_to_text([item])
+            if not converted_items or not converted_items[0].get('conversion_success', True):
+                continue
+
+            content = converted_items[0]['content'][:10000]
+
+            # Add facts context to the extraction
+            predictions = self.prediction_service.extract_predictions(content, language, facts_context)
+            
+            # Store positive predictions
+            for pred in predictions['positive'][:20]:
+                self.node_repository.create_node(
+                    'prediction', pred, job_uuid,
+                    {'source': 'prediction_extraction', 'item_id': item_id, 'language': language, 'sentiment': 'positive'}
+                )
+                total_predictions += 1
+            
+            # Store negative predictions
+            for pred in predictions['negative'][:20]:
+                self.node_repository.create_node(
+                    'prediction', pred, job_uuid,
+                    {'source': 'prediction_extraction', 'item_id': item_id, 'language': language, 'sentiment': 'negative'}
+                )
+                total_predictions += 1
+
+        self.step_service.update_step(
+            step_id, 'completed',
+            {'predictions_extracted': total_predictions}
+        )
+        print(f"[STEP {step_number}] Completed prediction extraction: {total_predictions} predictions extracted", flush=True)
+
+    def _extract_unknowns(self, job_uuid: str, items: list, language: str, step_number: int):
+        """Extract unknowns with context from extracted facts."""
+        print(f"[STEP {step_number}] Starting unknown extraction for {len(items)} items", flush=True)
+        step_id = self.step_service.create_step(
+            job_uuid, step_number, 'reasoning',
+            {'item_count': len(items), 'task': 'unknown_extraction'},
+            {'language': language}
+        )
+
+        self.step_service.update_step(step_id, 'processing')
+
+        # Get extracted facts to add as context
+        facts_data = self.fact_storage_service.get_extracted_facts(job_uuid, validated_only=False)
+        facts_context = "\n".join([f"- {f['fact']}" for f in facts_data[:50]])
+        print(f"[STEP {step_number}] Using {len(facts_data)} facts as context for unknowns", flush=True)
+
+        total_unknowns = 0
+
+        for item in items:
+            item_id = item['id']
+
+            converted_items = self.content_converter.convert_items_to_text([item])
+            if not converted_items or not converted_items[0].get('conversion_success', True):
+                continue
+
+            content = converted_items[0]['content'][:10000]
+
+            # Add facts context to the extraction
+            unknowns = self.unknown_service.extract_unknowns(content, language, facts_context)
+            
+            # Store unknowns
+            for unknown in unknowns[:20]:
+                self.node_repository.create_node(
+                    'missing_information', unknown, job_uuid,
+                    {'source': 'unknown_extraction', 'item_id': item_id, 'language': language}
+                )
+                total_unknowns += 1
+
+        self.step_service.update_step(
+            step_id, 'completed',
+            {'unknowns_extracted': total_unknowns}
+        )
+        print(f"[STEP {step_number}] Completed unknown extraction: {total_unknowns} unknowns extracted", flush=True)
 

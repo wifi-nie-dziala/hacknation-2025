@@ -23,14 +23,15 @@ Kamienie milowe w rozwoju politycznym i gospodarczym: demokracja parlamentarna o
 class PredictionService:
     """Handles LLM-based prediction extraction (positive and negative)."""
 
-    def extract_predictions(self, text: str, language: str = 'en') -> Dict[str, List[str]]:
+    def extract_predictions(self, text: str, language: str = 'en', facts_context: str = '') -> Dict[str, List[str]]:
         """Extract positive and negative predictions from text using LLM."""
+        print(f"[PREDICTION_EXTRACTION] Calling LLM ({config.LLM_PROVIDER}) for prediction extraction...", flush=True)
         if config.LLM_PROVIDER == 'cloudflare':
-            return self._extract_with_cloudflare(text, language)
+            return self._extract_with_cloudflare(text, language, facts_context)
         else:
-            return self._extract_with_ollama(text, language)
+            return self._extract_with_ollama(text, language, facts_context)
 
-    def _extract_with_cloudflare(self, text: str, language: str) -> Dict[str, List[str]]:
+    def _extract_with_cloudflare(self, text: str, language: str, facts_context: str = '') -> Dict[str, List[str]]:
         """Extract predictions using Cloudflare Workers AI."""
         if not config.CLOUDFLARE_ACCOUNT_ID or not config.CLOUDFLARE_API_TOKEN:
             print("ERROR: Cloudflare credentials not configured")
@@ -58,7 +59,7 @@ class PredictionService:
             "NEGATYWNE:\n- predykcja 1\n- predykcja 2"
         )
 
-        prompt = self._build_prompt(text, language)
+        prompt = self._build_prompt(text, language, facts_context)
 
         payload = {
             "messages": [
@@ -84,9 +85,9 @@ class PredictionService:
             print(f"Cloudflare AI extraction error: {e}")
             return {'positive': [], 'negative': []}
 
-    def _extract_with_ollama(self, text: str, language: str) -> Dict[str, List[str]]:
+    def _extract_with_ollama(self, text: str, language: str, facts_context: str = '') -> Dict[str, List[str]]:
         """Extract predictions using local Ollama LLM."""
-        prompt = self._build_prompt(text, language)
+        prompt = self._build_prompt(text, language, facts_context)
 
         try:
             response = requests.post(
@@ -108,17 +109,19 @@ class PredictionService:
 
         return {'positive': [], 'negative': []}
 
-    def _build_prompt(self, text: str, language: str) -> str:
+    def _build_prompt(self, text: str, language: str, facts_context: str = '') -> str:
         """Build extraction prompt."""
+        facts_section = f"\n\nKnown facts:\n{facts_context}\n" if facts_context else ""
+        
         if language == 'en':
             return (
-                f"Context: You are analyzing information for the hypothetical country Atlantis.\n\n{ATLANTIS_CONTEXT}\n\n"
+                f"Context: You are analyzing information for the hypothetical country Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
                 f"Extract positive and negative predictions from the following text that are relevant to Atlantis:\n\n{text}\n\n"
                 "Format:\nPOSITIVE:\n- prediction 1\n- prediction 2\n\nNEGATIVE:\n- prediction 1\n- prediction 2"
             )
         else:
             return (
-                f"Kontekst: Analizujesz informacje dla hipotetycznego państwa Atlantis.\n\n{ATLANTIS_CONTEXT}\n\n"
+                f"Kontekst: Analizujesz informacje dla hipotetycznego państwa Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
                 f"Wyodrębnij pozytywne i negatywne predykcje z następującego tekstu, które są istotne dla Atlantis:\n\n{text}\n\n"
                 "Format:\nPOZYTYWNE:\n- predykcja 1\n- predykcja 2\n\nNEGATYWNE:\n- predykcja 1\n- predykcja 2"
             )

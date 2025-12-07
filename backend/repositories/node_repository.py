@@ -1,4 +1,5 @@
 from typing import List, Dict, Optional
+import psycopg2.extras
 
 
 class NodeRepository:
@@ -8,6 +9,7 @@ class NodeRepository:
     def create_node(self, node_type: str, value: str, job_uuid: Optional[str] = None, metadata: Optional[Dict] = None) -> str:
         cur = self.conn.cursor()
         try:
+            metadata_json = psycopg2.extras.Json(metadata) if metadata else None
             if job_uuid:
                 cur.execute(
                     """
@@ -15,7 +17,7 @@ class NodeRepository:
                     VALUES (%s, %s, (SELECT id FROM processing_jobs WHERE job_uuid = %s), %s)
                     RETURNING id
                     """,
-                    (node_type, value, job_uuid, metadata)
+                    (node_type, value, job_uuid, metadata_json)
                 )
             else:
                 cur.execute(
@@ -24,7 +26,7 @@ class NodeRepository:
                     VALUES (%s, %s, %s)
                     RETURNING id
                     """,
-                    (node_type, value, metadata)
+                    (node_type, value, metadata_json)
                 )
             node_id = cur.fetchone()[0]
             self.conn.commit()

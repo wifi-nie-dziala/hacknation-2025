@@ -23,14 +23,15 @@ Kamienie milowe w rozwoju politycznym i gospodarczym: demokracja parlamentarna o
 class UnknownService:
     """Handles LLM-based unknown/missing information extraction."""
 
-    def extract_unknowns(self, text: str, language: str = 'en') -> List[str]:
+    def extract_unknowns(self, text: str, language: str = 'en', facts_context: str = '') -> List[str]:
         """Extract missing information from text using LLM."""
+        print(f"[UNKNOWN_EXTRACTION] Calling LLM ({config.LLM_PROVIDER}) for unknown extraction...", flush=True)
         if config.LLM_PROVIDER == 'cloudflare':
-            return self._extract_with_cloudflare(text, language)
+            return self._extract_with_cloudflare(text, language, facts_context)
         else:
-            return self._extract_with_ollama(text, language)
+            return self._extract_with_ollama(text, language, facts_context)
 
-    def _extract_with_cloudflare(self, text: str, language: str) -> List[str]:
+    def _extract_with_cloudflare(self, text: str, language: str, facts_context: str = '') -> List[str]:
         """Extract unknowns using Cloudflare Workers AI."""
         if not config.CLOUDFLARE_ACCOUNT_ID or not config.CLOUDFLARE_API_TOKEN:
             print("ERROR: Cloudflare credentials not configured")
@@ -54,7 +55,7 @@ class UnknownService:
             "Zwróć tylko brakujące informacje, jedną na linię."
         )
 
-        prompt = self._build_prompt(text, language)
+        prompt = self._build_prompt(text, language, facts_context)
 
         payload = {
             "messages": [
@@ -80,9 +81,9 @@ class UnknownService:
             print(f"Cloudflare AI extraction error: {e}")
             return []
 
-    def _extract_with_ollama(self, text: str, language: str) -> List[str]:
+    def _extract_with_ollama(self, text: str, language: str, facts_context: str = '') -> List[str]:
         """Extract unknowns using local Ollama LLM."""
-        prompt = self._build_prompt(text, language)
+        prompt = self._build_prompt(text, language, facts_context)
 
         try:
             response = requests.post(
@@ -104,17 +105,19 @@ class UnknownService:
 
         return []
 
-    def _build_prompt(self, text: str, language: str) -> str:
+    def _build_prompt(self, text: str, language: str, facts_context: str = '') -> str:
         """Build extraction prompt."""
+        facts_section = f"\n\nKnown facts:\n{facts_context}\n" if facts_context else ""
+        
         if language == 'en':
             return (
-                f"Context: You are analyzing information for the hypothetical country Atlantis.\n\n{ATLANTIS_CONTEXT}\n\n"
+                f"Context: You are analyzing information for the hypothetical country Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
                 f"Based on the following text, identify what information is missing or unknown that would be important for Atlantis:\n\n{text}\n\n"
                 "Missing information:"
             )
         else:
             return (
-                f"Kontekst: Analizujesz informacje dla hipotetycznego państwa Atlantis.\n\n{ATLANTIS_CONTEXT}\n\n"
+                f"Kontekst: Analizujesz informacje dla hipotetycznego państwa Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
                 f"Na podstawie następującego tekstu zidentyfikuj, jakie informacje brakują lub są nieznane, a które byłyby ważne dla Atlantis:\n\n{text}\n\n"
                 "Brakujące informacje:"
             )
