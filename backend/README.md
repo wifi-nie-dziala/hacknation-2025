@@ -4,14 +4,14 @@
 
 ```bash
 # Start all services (recommended)
-docker-compose -f docker-compose.cpu.yml up -d
+docker-compose up -d
 
 # Or use the main start script
 ./start.sh
 ```
 
 This will:
-1. Start database, backend, frontend, and LLM services
+1. Start database, backend, frontend, and embeddings services
 2. Initialize database with sample data
 3. Backend available at http://localhost:8080
 4. Health check: http://localhost:8080/health
@@ -33,12 +33,12 @@ docker logs hacknation-backend -f
 
 ### Restart Backend Only
 ```bash
-docker-compose -f docker-compose.cpu.yml restart backend
+docker-compose restart backend
 ```
 
 ### Rebuild After Code Changes
 ```bash
-docker-compose -f docker-compose.cpu.yml up -d --build backend
+docker-compose up -d --build backend
 ```
 
 ## API Endpoints

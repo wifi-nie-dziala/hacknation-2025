@@ -38,8 +38,8 @@ Response:
 ## Test
 
 ```bash
-# Build i run
-docker-compose -f docker-compose.cpu.yml up -d embeddings
+# Build and run
+docker-compose up -d embeddings
 
 # Test
 cd embedding-service

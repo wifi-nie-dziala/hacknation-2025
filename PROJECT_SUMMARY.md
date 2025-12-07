@@ -58,18 +58,13 @@ All services run in Docker containers connected via `hacknation-network`:
 ├── frontend (React + Nginx) - Port 3000
 ├── backend (Flask + Gunicorn) - Port 5000
 ├── database (PostgreSQL + pgvector) - Port 5432
-├── llm-en (Ollama English) - Port 11434
-└── llm-pl (Ollama Polish) - Port 11435
 ```
 
-### Docker Compose Files
-- `docker-compose.yml` - GPU-accelerated version
-- `docker-compose.cpu.yml` - CPU-only version
+### Docker Compose
+Single `docker-compose.yml` for all environments
 
 ### Persistent Volumes
 - `hacknation-postgres-data` - Database storage
-- `hacknation-ollama-en-data` - English model storage
-- `hacknation-ollama-pl-data` - Polish model storage
 
 ## Documentation
 
@@ -116,15 +111,11 @@ All services run in Docker containers connected via `hacknation-network`:
 ./start.sh
 ```
 
-### Manual Start (GPU)
+### Manual Start
 ```bash
 docker-compose up -d
 ```
 
-### Manual Start (CPU)
-```bash
-docker-compose -f docker-compose.cpu.yml up -d
-```
 
 ### Check Health
 ```bash
@@ -198,8 +189,7 @@ hacknation-2025/
 │   └── Dockerfile
 ├── database/             # Database scripts
 │   └── init.sql
-├── docker-compose.yml           # GPU version
-├── docker-compose.cpu.yml       # CPU version
+├── docker-compose.yml           # Docker Compose configuration
 ├── start.sh                     # Startup script
 ├── health-check.sh              # Health check
 ├── Makefile                     # Common commands

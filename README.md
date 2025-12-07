@@ -38,23 +38,16 @@ git clone https://github.com/wifi-nie-dziala/hacknation-2025.git
 cd hacknation-2025
 ```
 
-### 2. Choose Your Docker Compose File
+### 2. Start the Application
 
-**For systems with NVIDIA GPU:**
 ```bash
 docker-compose up -d
-```
-
-**For CPU-only systems:**
-```bash
-docker-compose -f docker-compose.cpu.yml up -d
 ```
 
 ### 3. Wait for Services to Initialize
 
 The first startup will take several minutes as Docker needs to:
 - Pull all container images
-- Download LLM models (llama2, ~4GB each)
 - Initialize the database
 - Build the frontend and backend
 
@@ -95,7 +88,7 @@ hacknation-2025/
 │   └── init.sql         # Database initialization script
 │
 ├── docker-compose.yml           # Main Docker Compose (with GPU support)
-├── docker-compose.cpu.yml       # CPU-only Docker Compose
+├── docker-compose.yml           # Docker Compose configuration
 ├── .gitignore                   # Git ignore rules
 └── README.md                    # This file
 ```

@@ -13,9 +13,6 @@ up: ## Start all services (always rebuilds backend)
 	docker-compose up -d --build backend
 	docker-compose up -d
 
-up-cpu: ## Start all services (CPU-only version, always rebuilds backend)
-	docker-compose -f docker-compose.cpu.yml up -d --build backend
-	docker-compose -f docker-compose.cpu.yml up -d
 
 down: ## Stop all services
 	docker-compose down
@@ -32,11 +29,8 @@ logs-frontend: ## View frontend logs
 logs-database: ## View database logs
 	docker-compose logs -f database
 
-logs-llm-en: ## View English LLM logs
-	docker-compose logs -f llm-en
-
-logs-llm-pl: ## View Polish LLM logs
-	docker-compose logs -f llm-pl
+logs-embeddings: ## View embeddings service logs
+	docker-compose logs -f embeddings
 
 clean: ## Stop services and remove volumes (⚠️  deletes all data)
 	docker-compose down -v

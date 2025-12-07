@@ -96,15 +96,13 @@ Error message like: `Bind for 0.0.0.0:3000 failed: port is already allocated`
    - Subsequent requests are faster
    - This is normal behavior
 
-2. **For CPU-only systems:**
-   - Use the CPU compose file: `docker-compose -f docker-compose.cpu.yml up`
-   - Increase timeout in backend/app.py if needed
-   - Consider using smaller models
+2. **Increase timeout if needed:**
+   - Adjust timeout in backend/app.py if needed
+   - Consider using smaller/faster models
 
-3. **Check LLM container logs:**
+3. **Check service logs:**
    ```bash
-   docker-compose logs -f llm-en
-   docker-compose logs -f llm-pl
+   docker-compose logs -f backend
    ```
 
 ### Symptom 2: LLM models not downloading
