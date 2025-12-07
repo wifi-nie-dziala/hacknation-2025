@@ -112,19 +112,38 @@ class PredictionService:
         if language == 'en':
             return (
                 f"Context: You are analyzing information for the hypothetical country Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
-                f"Extract predictions from the following text that are relevant to Atlantis:\n\n{text}\n\n"
-                "Format:\n- prediction 1\n- prediction 2\n- prediction 3"
+                f"Extract predictions from the following text that are relevant to Atlantis.\n"
+                f"Return ONLY the predictions as a bullet list. Do NOT include any titles, headers, or phrases like "
+                f'"Here are the predictions:", "There are no predictions", etc.\n'
+                f"If there are no predictions, return nothing (empty response).\n\n{text}"
             )
         else:
             return (
                 f"Kontekst: Analizujesz informacje dla hipotetycznego państwa Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
-                f"Wyodrębnij predykcje z następującego tekstu, które są istotne dla Atlantis:\n\n{text}\n\n"
-                "Format:\n- predykcja 1\n- predykcja 2\n- predykcja 3"
+                f"Wyodrębnij predykcje z następującego tekstu, które są istotne dla Atlantis.\n"
+                f"Zwróć TYLKO predykcje jako listę punktowaną. NIE dodawaj żadnych tytułów, nagłówków ani fraz takich jak "
+                f'"Oto predykcje:", "Brak predykcji", itp.\n'
+                f"Jeśli nie ma predykcji, zwróć pustą odpowiedź.\n\n{text}"
             )
 
     def _parse_predictions(self, predictions_text: str, language: str) -> List[str]:
         """Parse predictions from LLM response."""
         print(f"[PREDICTION_PARSING] Raw LLM response: {predictions_text[:200]}...", flush=True)
+
+        skip_phrases = [
+            'there are no predictions',
+            'no predictions related',
+            'no predictions found',
+            'nie ma predykcji',
+            'brak predykcji',
+            'nie znaleziono predykcji',
+        ]
+
+        lower_text = predictions_text.lower()
+        if any(skip in lower_text for skip in skip_phrases):
+            print(f"[PREDICTION_PARSING] No predictions message detected, returning empty", flush=True)
+            return []
+
         lines = predictions_text.split('\n')
         predictions = []
 

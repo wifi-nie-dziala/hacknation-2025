@@ -108,16 +108,39 @@ class FactExtractionService:
     def _build_prompt(self, text: str, language: str) -> str:
         """Build extraction prompt."""
         if language == 'en':
-            return f'Extract key facts from the following text. Return only the facts, one per line:\n\n{text}\n\nFacts:'
+            return (
+                f'Extract key facts from the following text. Return ONLY the facts, one per line.\n'
+                f'Do NOT include any titles, headers, or phrases like "Here are the extracted facts:", "Extracted facts:", etc.\n'
+                f'Just output the raw facts directly.\n\n{text}'
+            )
         else:
-            return f'Wyodrębnij kluczowe fakty z następującego tekstu. Zwróć tylko fakty, jeden na linię:\n\n{text}\n\nFakty:'
+            return (
+                f'Wyodrębnij kluczowe fakty z następującego tekstu. Zwróć TYLKO fakty, jeden na linię.\n'
+                f'NIE dodawaj żadnych tytułów, nagłówków ani fraz takich jak "Oto fakty:", "Wyodrębnione fakty:", itp.\n'
+                f'Po prostu wypisz same fakty.\n\n{text}'
+            )
 
     def _parse_facts(self, facts_text: str) -> List[str]:
         """Parse facts from LLM response."""
-        facts = [
-            f.strip()
-            for f in facts_text.split('\n')
-            if f.strip() and not f.strip().startswith('-') and not f.strip().startswith('*')
+        skip_phrases = [
+            'here are the extracted facts',
+            'extracted facts:',
+            'here are the facts',
+            'poniżej znajdują się fakty',
+            'wyodrębnione fakty:',
+            'oto fakty',
         ]
+        facts = []
+        for f in facts_text.split('\n'):
+            line = f.strip()
+            if not line:
+                continue
+            if line.startswith('-') or line.startswith('*') or line.startswith('•'):
+                line = line.lstrip('-*•').strip()
+            lower = line.lower()
+            if any(skip in lower for skip in skip_phrases):
+                continue
+            if len(line) > 10:
+                facts.append(line)
         return facts
 
