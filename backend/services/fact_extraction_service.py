@@ -124,11 +124,22 @@ class FactExtractionService:
         """Parse facts from LLM response."""
         skip_phrases = [
             'here are the extracted facts',
-            'extracted facts:',
+            'here are the key facts',
             'here are the facts',
+            'extracted facts:',
+            'key facts:',
+            'the facts are',
+            'facts extracted',
+            'from the text',
+            'from this text',
+            'i have extracted',
+            'i extracted',
+            'based on the text',
             'poniżej znajdują się fakty',
             'wyodrębnione fakty:',
             'oto fakty',
+            'kluczowe fakty',
+            'fakty z tekstu',
         ]
         facts = []
         for f in facts_text.split('\n'):
@@ -137,8 +148,12 @@ class FactExtractionService:
                 continue
             if line.startswith('-') or line.startswith('*') or line.startswith('•'):
                 line = line.lstrip('-*•').strip()
+            if line.startswith(('1.', '2.', '3.', '4.', '5.', '6.', '7.', '8.', '9.')):
+                line = line[2:].strip()
             lower = line.lower()
             if any(skip in lower for skip in skip_phrases):
+                continue
+            if line.endswith(':'):
                 continue
             if len(line) > 10:
                 facts.append(line)
