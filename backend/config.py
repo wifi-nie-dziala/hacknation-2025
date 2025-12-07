@@ -24,7 +24,7 @@ CLOUDFLARE_MODEL_PL = os.getenv('CLOUDFLARE_MODEL_PL', '@cf/meta/llama-3.1-70b-i
 # Ollama
 OLLAMA_HOST = os.getenv('OLLAMA_HOST', 'host.docker.internal')
 OLLAMA_PORT = os.getenv('OLLAMA_PORT', '11434')
-OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'qwen2.5:30b-a3b')
+OLLAMA_MODEL = os.getenv('OLLAMA_MODEL', 'qwen3:30b-a3b')
 
 # Flask
 FLASK_DEBUG = os.getenv('FLASK_DEBUG', 'False').lower() == 'true'

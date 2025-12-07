@@ -8,6 +8,7 @@ from .fact_storage_service import FactStorageService
 from .content_converter_service import ContentConverterService
 from .prediction_service import PredictionService
 from .unknown_service import UnknownService
+from .report_generation_service import ReportGenerationService
 from repositories.node_repository import NodeRepository
 
 
@@ -24,6 +25,7 @@ class ProcessingService:
         self.content_converter = ContentConverterService()
         self.prediction_service = PredictionService()
         self.unknown_service = UnknownService()
+        self.report_service = ReportGenerationService()
         self.node_repository = NodeRepository(db_connection)
 
     # Delegate to JobService
@@ -101,6 +103,13 @@ class ProcessingService:
             self._extract_unknowns(job_uuid, items, language, step_number)
             self.conn.commit()
             print(f"[JOB {job_uuid}] STEP 4 COMPLETE: Unknowns extracted", flush=True)
+            step_number += 1
+
+            # Step 5: Report Generation
+            print(f"[JOB {job_uuid}] === STEP 5: REPORT GENERATION ===", flush=True)
+            self._generate_report(job_uuid, language, step_number)
+            self.conn.commit()
+            print(f"[JOB {job_uuid}] STEP 5 COMPLETE: Report generated", flush=True)
             step_number += 1
 
             self.job_service.update_job_status(job_uuid, 'completed')
@@ -323,4 +332,44 @@ class ProcessingService:
             {'unknowns_extracted': unknown_count}
         )
         print(f"[STEP {step_number}] Completed unknown extraction: {unknown_count} unknowns stored", flush=True)
+
+    def _generate_report(self, job_uuid: str, language: str, step_number: int):
+        """Generate final analytical report."""
+        print(f"[STEP {step_number}] Starting report generation", flush=True)
+        step_id = self.step_service.create_step(
+            job_uuid, step_number, 'report_generation',
+            {'task': 'final_report'},
+            {'language': language}
+        )
+
+        self.step_service.update_step(step_id, 'processing')
+
+        nodes = self.node_repository.get_nodes_by_job(job_uuid)
+        facts = [n for n in nodes if n['type'] == 'fact']
+        predictions = [n for n in nodes if n['type'] == 'prediction']
+        unknowns = [n for n in nodes if n['type'] == 'missing_information']
+
+        all_relations = []
+        seen = set()
+        for node in nodes:
+            relations = self.node_repository.get_node_relations(str(node['id']), 'both')
+            for rel in relations:
+                if str(rel['id']) not in seen:
+                    all_relations.append(rel)
+                    seen.add(str(rel['id']))
+
+        print(f"[STEP {step_number}] Generating report with {len(facts)} facts, {len(predictions)} predictions, {len(unknowns)} unknowns, {len(all_relations)} relations", flush=True)
+
+        report = self.report_service.generate_report(facts, predictions, unknowns, all_relations, language)
+
+        # Save report directly to the job table
+        from repositories.job_repository import JobRepository
+        job_repo = JobRepository(self.conn)
+        job_repo.save_report(job_uuid, report)
+
+        self.step_service.update_step(
+            step_id, 'completed',
+            {'report_generated': True}
+        )
+        print(f"[STEP {step_number}] Report generated and saved to job", flush=True)
 

@@ -1,5 +1,6 @@
 from typing import List, Dict, Optional
 from datetime import datetime, timezone
+import json
 
 
 class JobRepository:
@@ -26,7 +27,7 @@ class JobRepository:
         try:
             cur.execute(
                 """
-                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message
+                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message, report
                 FROM processing_jobs
                 WHERE job_uuid = %s
                 """,
@@ -42,7 +43,8 @@ class JobRepository:
                 'created_at': row[2].isoformat() if row[2] else None,
                 'updated_at': row[3].isoformat() if row[3] else None,
                 'completed_at': row[4].isoformat() if row[4] else None,
-                'error_message': row[5]
+                'error_message': row[5],
+                'report': row[6]
             }
         finally:
             cur.close()
@@ -52,7 +54,7 @@ class JobRepository:
         try:
             cur.execute(
                 """
-                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message
+                SELECT job_uuid, status, created_at, updated_at, completed_at, error_message, report
                 FROM processing_jobs
                 ORDER BY created_at DESC
                 LIMIT %s
@@ -67,7 +69,8 @@ class JobRepository:
                     'created_at': row[2].isoformat() if row[2] else None,
                     'updated_at': row[3].isoformat() if row[3] else None,
                     'completed_at': row[4].isoformat() if row[4] else None,
-                    'error_message': row[5]
+                    'error_message': row[5],
+                    'report': row[6]
                 }
                 for row in rows
             ]
@@ -85,6 +88,21 @@ class JobRepository:
                 WHERE job_uuid = %s
                 """,
                 (status, datetime.now(timezone.utc), completed_at, error_message, job_uuid)
+            )
+            self.conn.commit()
+        finally:
+            cur.close()
+
+    def save_report(self, job_uuid: str, report: Dict):
+        cur = self.conn.cursor()
+        try:
+            cur.execute(
+                """
+                UPDATE processing_jobs
+                SET report = %s, updated_at = %s
+                WHERE job_uuid = %s
+                """,
+                (json.dumps(report, ensure_ascii=False), datetime.now(timezone.utc), job_uuid)
             )
             self.conn.commit()
         finally:
