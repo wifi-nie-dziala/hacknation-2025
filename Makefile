@@ -1,4 +1,4 @@
-.PHONY: help build up down logs clean restart status health
+.PHONY: help build up down logs clean restart status health db-reset
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -63,6 +63,20 @@ shell-backend: ## Open shell in backend container
 
 shell-database: ## Open PostgreSQL shell
 	docker-compose exec database psql -U postgres -d hacknation
+
+db-reset: ## Reset database - drops all data and re-applies init.sql
+	@echo "Stopping backend..."
+	docker-compose stop backend
+	@echo "Terminating existing connections..."
+	docker-compose exec -T database psql -U postgres -c "SELECT pg_terminate_backend(pid) FROM pg_stat_activity WHERE datname = 'hacknation' AND pid <> pg_backend_pid();" || true
+	@echo "Dropping and recreating database..."
+	docker-compose exec -T database psql -U postgres -c "DROP DATABASE IF EXISTS hacknation;"
+	docker-compose exec -T database psql -U postgres -c "CREATE DATABASE hacknation;"
+	@echo "Applying init.sql..."
+	docker-compose exec -T database psql -U postgres -d hacknation -f /docker-entrypoint-initdb.d/init.sql
+	@echo "Restarting backend..."
+	docker-compose start backend
+	@echo "Database reset complete!"
 
 rebuild: ## Rebuild and restart all services
 	docker-compose down
