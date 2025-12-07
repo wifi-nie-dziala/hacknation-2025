@@ -78,30 +78,11 @@ GET http://localhost:8080/api/jobs/33333333-3333-3333-3333-333333333333
 GET http://localhost:8080/api/jobs/44444444-4444-4444-4444-444444444444
 
 ### Get specific job details (replace with actual job UUID from submit response)
-GET http://localhost:8080/api/jobs/39153871-f7d9-40a7-9b14-f75b714295b6
+GET http://localhost:8080/api/jobs/92a94693-719c-4ae4-a999-89f4144cebd7
 
 ### Example: Get job details (use a real UUID from your system)
 # GET http://localhost:8080/api/jobs/550e8400-e29b-41d4-a716-446655440000
 
-### Get nodes for a specific job
-GET http://localhost:8080/api/jobs/33333333-3333-3333-3333-333333333333/nodes
-
-### Get nodes for a specific job filtered by type
-GET http://localhost:8080/api/jobs/33333333-3333-3333-3333-333333333333/nodes?type=fact
-
-### Get specific node by ID (use a real UUID from get nodes response)
-### First, get nodes from the job above, then replace the UUID below with a real one
-GET http://localhost:8080/api/nodes/00000000-0000-0000-0000-000000000000
-
-### Get relations for a specific node (both directions)
-### Replace with actual node UUID from the get nodes response
-GET http://localhost:8080/api/nodes/00000000-0000-0000-0000-000000000000/relations
-
-### Get incoming relations for a specific node
-GET http://localhost:8080/api/nodes/00000000-0000-0000-0000-000000000000/relations?direction=incoming
-
-### Get outgoing relations for a specific node
-GET http://localhost:8080/api/nodes/00000000-0000-0000-0000-000000000000/relations?direction=outgoing
 
 ### Get nodes for a specific job
 GET http://localhost:8080/api/jobs/33333333-3333-3333-3333-333333333333/nodes

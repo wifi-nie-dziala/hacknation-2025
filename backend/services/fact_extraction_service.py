@@ -77,6 +77,9 @@ class FactExtractionService:
                 result = response.json()
                 facts_text = result.get('response', '')
                 return self._parse_facts(facts_text)
+            else:
+                print(f"Ollama extraction error: Status {response.status_code}, Response: {response.text}")
+                return []
 
         except Exception as e:
             print(f"Ollama extraction error: {e}")
