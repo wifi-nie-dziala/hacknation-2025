@@ -11,18 +11,18 @@ class ReportGenerationService:
 
     def generate_report(self, facts: List[Dict], predictions: List[Dict],
                         unknowns: List[Dict], relations: List[Dict],
-                        language: str = 'pl') -> Dict:
+                        language: str = 'pl', time_horizon: str = '1 year') -> Dict:
         """Generate complete analysis report as structured JSON."""
-        print(f"[REPORT] Generating report with {len(facts)} facts, {len(predictions)} predictions, {len(unknowns)} unknowns", flush=True)
+        print(f"[REPORT] Generating report with {len(facts)} facts, {len(predictions)} predictions, {len(unknowns)} unknowns, time_horizon: {time_horizon}", flush=True)
 
         if config.LLM_PROVIDER == 'cloudflare':
-            return self._generate_with_cloudflare(facts, predictions, unknowns, relations, language)
+            return self._generate_with_cloudflare(facts, predictions, unknowns, relations, language, time_horizon)
         else:
-            return self._generate_with_ollama(facts, predictions, unknowns, relations, language)
+            return self._generate_with_ollama(facts, predictions, unknowns, relations, language, time_horizon)
 
     def _build_full_prompt(self, facts: List[Dict], predictions: List[Dict],
                            unknowns: List[Dict], relations: List[Dict],
-                           language: str) -> str:
+                           language: str, time_horizon: str = '1 year') -> str:
         facts_str = "\n".join([f"- {f.get('fact', f.get('value', ''))}" for f in facts[:50]])
         predictions_str = "\n".join([f"- {p.get('value', p.get('prediction', ''))}" for p in predictions[:30]])
         unknowns_str = "\n".join([f"- {u.get('value', u.get('unknown', ''))}" for u in unknowns[:20]])
@@ -38,6 +38,9 @@ class ReportGenerationService:
             return f"""KONTEKST ATLANTIS:
 {ATLANTIS_CONTEXT}
 
+HORYZONT CZASOWY ANALIZY: {time_horizon}
+WAŻNE: Wszystkie scenariusze i rekomendacje MUSZĄ być opracowane z uwzględnieniem tego horyzontu czasowego. Rozważ co może się wydarzyć w ciągu {time_horizon}.
+
 ZEBRANE FAKTY:
 {facts_str}
 
@@ -52,16 +55,20 @@ POWIĄZANIA MIĘDZY ELEMENTAMI:
 
 Na podstawie powyższych danych wygeneruj raport analityczny w formacie JSON z następującą strukturą:
 {{
+  "time_horizon": "{time_horizon}",
   "summary": "Streszczenie danych (max 150 słów) - przejrzyste, user-friendly",
-  "positive_scenario": "Scenariusz pozytywny dla Atlantis z wyjaśnieniem korelacji (200-300 słów)",
-  "negative_scenario": "Scenariusz negatywny dla Atlantis z wyjaśnieniem korelacji (200-300 słów)",
-  "recommendations": "Rekomendacje: jakie decyzje pomogą uniknąć scenariuszy negatywnych (200-300 słów)"
+  "positive_scenario": "Scenariusz pozytywny dla Atlantis w horyzoncie {time_horizon} z wyjaśnieniem korelacji (200-300 słów)",
+  "negative_scenario": "Scenariusz negatywny dla Atlantis w horyzoncie {time_horizon} z wyjaśnieniem korelacji (200-300 słów)",
+  "recommendations": "Rekomendacje: jakie decyzje pomogą uniknąć scenariuszy negatywnych w ciągu {time_horizon} (200-300 słów)"
 }}
 
 WAŻNE: Odpowiedz TYLKO poprawnym JSON-em, bez żadnego dodatkowego tekstu."""
         else:
             return f"""ATLANTIS CONTEXT:
 {ATLANTIS_CONTEXT}
+
+TIME HORIZON FOR ANALYSIS: {time_horizon}
+IMPORTANT: All scenarios and recommendations MUST be developed considering this time horizon. Consider what could happen within {time_horizon}.
 
 COLLECTED FACTS:
 {facts_str}
@@ -77,17 +84,18 @@ RELATIONSHIPS:
 
 Based on the above data, generate an analytical report in JSON format with this structure:
 {{
+  "time_horizon": "{time_horizon}",
   "summary": "Data summary (max 150 words) - clear, user-friendly",
-  "positive_scenario": "Positive scenario for Atlantis with correlations and cause-effect explanations (200-300 words)",
-  "negative_scenario": "Negative scenario for Atlantis with correlations and cause-effect explanations (200-300 words)",
-  "recommendations": "Recommendations: decisions to avoid negative scenarios (200-300 words)"
+  "positive_scenario": "Positive scenario for Atlantis within {time_horizon} with correlations and cause-effect explanations (200-300 words)",
+  "negative_scenario": "Negative scenario for Atlantis within {time_horizon} with correlations and cause-effect explanations (200-300 words)",
+  "recommendations": "Recommendations: decisions to avoid negative scenarios within {time_horizon} (200-300 words)"
 }}
 
 IMPORTANT: Reply with ONLY valid JSON, no additional text."""
 
     def _generate_with_cloudflare(self, facts: List[Dict], predictions: List[Dict],
                                    unknowns: List[Dict], relations: List[Dict],
-                                   language: str) -> Dict:
+                                   language: str, time_horizon: str = '1 year') -> Dict:
         if not config.CLOUDFLARE_ACCOUNT_ID or not config.CLOUDFLARE_API_TOKEN:
             return {'error': 'Cloudflare not configured'}
 
@@ -99,7 +107,7 @@ IMPORTANT: Reply with ONLY valid JSON, no additional text."""
             "Content-Type": "application/json"
         }
 
-        prompt = self._build_full_prompt(facts, predictions, unknowns, relations, language)
+        prompt = self._build_full_prompt(facts, predictions, unknowns, relations, language, time_horizon)
 
         payload = {
             "messages": [
@@ -131,8 +139,8 @@ IMPORTANT: Reply with ONLY valid JSON, no additional text."""
 
     def _generate_with_ollama(self, facts: List[Dict], predictions: List[Dict],
                                unknowns: List[Dict], relations: List[Dict],
-                               language: str) -> Dict:
-        prompt = self._build_full_prompt(facts, predictions, unknowns, relations, language)
+                               language: str, time_horizon: str = '1 year') -> Dict:
+        prompt = self._build_full_prompt(facts, predictions, unknowns, relations, language, time_horizon)
         ollama_url = f'http://{config.OLLAMA_HOST}:{config.OLLAMA_PORT}/api/generate'
         print(f"[REPORT] Calling Ollama at {ollama_url} with model {config.OLLAMA_MODEL}", flush=True)
 

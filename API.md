@@ -20,10 +20,15 @@ Submit a job for processing with optional scraping and fact extraction.
   "processing": {
     "enable_scraping": true,
     "enable_fact_extraction": true,
-    "language": "en"
+    "language": "en",
+    "time_horizon": "1 year"
   }
 }
 ```
+
+**Processing Options:**
+- `language`: Language for analysis ("en" or "pl"), default: "en"
+- `time_horizon`: Time horizon for scenarios and recommendations (e.g., "3 months", "1 year", "5 years"), default: "1 year". This parameter is highly important - all generated scenarios and recommendations will be tailored to this time period.
 
 **Response:**
 ```json
