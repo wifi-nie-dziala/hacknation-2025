@@ -258,7 +258,16 @@ class ProcessingService:
         else:
             # Fallback: use old method and link all predictions to all facts
             print(f"[STEP {step_number}] Sourced extraction failed, using fallback method", flush=True)
-            facts_context = "\n".join([f"- {f['fact']}" for f in facts_data[:30]])
+            # Sort facts by wage (highest first) for fallback too
+            sorted_facts = sorted(
+                facts_data[:30],
+                key=lambda f: f.get('wage') if f.get('wage') is not None else 0,
+                reverse=True
+            )
+            facts_context = "\n".join([
+                f"- (wage: {f['wage']}) {f['fact']}" if f.get('wage') else f"- {f['fact']}"
+                for f in sorted_facts
+            ])
             predictions = self.prediction_service.extract_predictions(combined_content, language, facts_context)
 
             if predictions:
