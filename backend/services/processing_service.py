@@ -60,6 +60,7 @@ class ProcessingService:
         """Execute the processing workflow for a job."""
         step_number = 1
         language = processing_config.get('language', 'en')
+        time_horizon = processing_config.get('time_horizon', '1 year')
 
         print(f"[JOB {job_uuid}] Starting processing with config: {processing_config}", flush=True)
 
@@ -107,7 +108,7 @@ class ProcessingService:
 
             # Step 5: Report Generation
             print(f"[JOB {job_uuid}] === STEP 5: REPORT GENERATION ===", flush=True)
-            self._generate_report(job_uuid, language, step_number)
+            self._generate_report(job_uuid, language, step_number, time_horizon)
             self.conn.commit()
             print(f"[JOB {job_uuid}] STEP 5 COMPLETE: Report generated", flush=True)
             step_number += 1
@@ -258,7 +259,16 @@ class ProcessingService:
         else:
             # Fallback: use old method and link all predictions to all facts
             print(f"[STEP {step_number}] Sourced extraction failed, using fallback method", flush=True)
-            facts_context = "\n".join([f"- {f['fact']}" for f in facts_data[:30]])
+            # Sort facts by wage (highest first) for fallback too
+            sorted_facts = sorted(
+                facts_data[:30],
+                key=lambda f: f.get('wage') if f.get('wage') is not None else 0,
+                reverse=True
+            )
+            facts_context = "\n".join([
+                f"- (wage: {f['wage']}) {f['fact']}" if f.get('wage') else f"- {f['fact']}"
+                for f in sorted_facts
+            ])
             predictions = self.prediction_service.extract_predictions(combined_content, language, facts_context)
 
             if predictions:
@@ -333,12 +343,12 @@ class ProcessingService:
         )
         print(f"[STEP {step_number}] Completed unknown extraction: {unknown_count} unknowns stored", flush=True)
 
-    def _generate_report(self, job_uuid: str, language: str, step_number: int):
+    def _generate_report(self, job_uuid: str, language: str, step_number: int, time_horizon: str = '1 year'):
         """Generate final analytical report."""
-        print(f"[STEP {step_number}] Starting report generation", flush=True)
+        print(f"[STEP {step_number}] Starting report generation (time_horizon: {time_horizon})", flush=True)
         step_id = self.step_service.create_step(
             job_uuid, step_number, 'report_generation',
-            {'task': 'final_report'},
+            {'task': 'final_report', 'time_horizon': time_horizon},
             {'language': language}
         )
 
@@ -360,7 +370,7 @@ class ProcessingService:
 
         print(f"[STEP {step_number}] Generating report with {len(facts)} facts, {len(predictions)} predictions, {len(unknowns)} unknowns, {len(all_relations)} relations", flush=True)
 
-        report = self.report_service.generate_report(facts, predictions, unknowns, all_relations, language)
+        report = self.report_service.generate_report(facts, predictions, unknowns, all_relations, language, time_horizon)
 
         # Save report directly to the job table
         from repositories.job_repository import JobRepository

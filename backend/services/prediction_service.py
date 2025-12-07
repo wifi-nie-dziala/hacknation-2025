@@ -117,12 +117,13 @@ class PredictionService:
 
     def _build_prompt(self, text: str, language: str, facts_context: str = '') -> str:
         """Build extraction prompt."""
-        facts_section = f"\n\nKnown facts:\n{facts_context}\n" if facts_context else ""
-        
+        facts_section = f"\n\nKnown facts (sorted by wage/importance - prioritize higher-wage facts):\n{facts_context}\n" if facts_context else ""
+
         if language == 'en':
             return (
                 f"Context: You are analyzing information for the hypothetical country Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
                 f"Extract predictions from the following text that are relevant to Atlantis.\n"
+                f"If facts are provided with wages, prioritize facts with higher wage values.\n"
                 f"Return ONLY the predictions as a bullet list. Do NOT include any titles, headers, or phrases like "
                 f'"Here are the predictions:", "There are no predictions", etc.\n'
                 f"If there are no predictions, return nothing (empty response).\n\n{text}"
@@ -131,6 +132,7 @@ class PredictionService:
             return (
                 f"Kontekst: Analizujesz informacje dla hipotetycznego państwa Atlantis.\n\n{ATLANTIS_CONTEXT}{facts_section}\n"
                 f"Wyodrębnij predykcje z następującego tekstu, które są istotne dla Atlantis.\n"
+                f"Jeśli fakty mają podaną wagę, priorytetyzuj fakty o wyższej wadze.\n"
                 f"Zwróć TYLKO predykcje jako listę punktowaną. NIE dodawaj żadnych tytułów, nagłówków ani fraz takich jak "
                 f'"Oto predykcje:", "Brak predykcji", itp.\n'
                 f"Jeśli nie ma predykcji, zwróć pustą odpowiedź.\n\n{text}"
@@ -167,6 +169,14 @@ class PredictionService:
         print(f"[PREDICTION_PARSING] Extracted {len(predictions)} predictions", flush=True)
         return predictions
 
+    def _sort_facts_by_wage(self, facts_list: List[Dict]) -> List[Dict]:
+        """Sort facts by wage (highest first). Facts without wage go last."""
+        return sorted(
+            facts_list,
+            key=lambda f: f.get('wage') if f.get('wage') is not None else 0,
+            reverse=True
+        )
+
     def _extract_with_sources_cloudflare(self, text: str, language: str, facts_list: List[Dict]) -> List[Dict]:
         """Extract predictions with source facts using Cloudflare."""
         if not config.CLOUDFLARE_ACCOUNT_ID or not config.CLOUDFLARE_API_TOKEN:
@@ -180,7 +190,8 @@ class PredictionService:
             "Content-Type": "application/json"
         }
 
-        prompt = self._build_sourced_prompt(text, language, facts_list)
+        sorted_facts = self._sort_facts_by_wage(facts_list)
+        prompt = self._build_sourced_prompt(text, language, sorted_facts)
 
         payload = {
             "messages": [
@@ -194,14 +205,15 @@ class PredictionService:
             response.raise_for_status()
             result = response.json()
             if result.get("success"):
-                return self._parse_sourced_predictions(result["result"]["response"], facts_list)
+                return self._parse_sourced_predictions(result["result"]["response"], sorted_facts)
         except Exception as e:
             print(f"Cloudflare sourced extraction error: {e}")
         return []
 
     def _extract_with_sources_ollama(self, text: str, language: str, facts_list: List[Dict]) -> List[Dict]:
         """Extract predictions with source facts using Ollama."""
-        prompt = self._build_sourced_prompt(text, language, facts_list)
+        sorted_facts = self._sort_facts_by_wage(facts_list)
+        prompt = self._build_sourced_prompt(text, language, sorted_facts)
         system_prompt = self._get_sourced_system_prompt(language)
         full_prompt = f"{system_prompt}\n\n{prompt}"
 
@@ -213,7 +225,7 @@ class PredictionService:
             )
             if response.status_code == 200:
                 result = response.json()
-                return self._parse_sourced_predictions(result.get('response', ''), facts_list)
+                return self._parse_sourced_predictions(result.get('response', ''), sorted_facts)
         except Exception as e:
             print(f"Ollama sourced extraction error: {e}")
         return []
@@ -224,7 +236,10 @@ class PredictionService:
                 f"You are an expert strategic analyst for Atlantis. {ATLANTIS_CONTEXT}\n\n"
                 "Your task: Generate predictions/forecasts about future events that could affect Atlantis.\n"
                 "Based on the facts provided, INFER what might happen in the future.\n"
-                "A prediction can be: potential threats, opportunities, trends, scenarios, consequences.\n"
+                "A prediction can be: potential threats, opportunities, trends, scenarios, consequences.\n\n"
+                "IMPORTANT: Facts are sorted by their WAGE (importance weight). Higher-wage facts come from more "
+                "reliable/important sources and should be PRIORITIZED in your analysis. Give more weight to "
+                "predictions derived from high-wage facts.\n\n"
                 "You MUST generate at least 3-5 predictions. Be creative but logical.\n"
                 "Return a JSON array: [{\"prediction\": \"prediction text\", \"source_fact_ids\": [0, 1]}]\n"
                 "source_fact_ids are the indices of facts that support this prediction."
@@ -233,22 +248,31 @@ class PredictionService:
             f"Jesteś ekspertem analitykiem strategicznym dla Atlantis. {ATLANTIS_CONTEXT}\n\n"
             "Zadanie: Wygeneruj predykcje/prognozy dotyczące przyszłych wydarzeń dla Atlantis.\n"
             "Na podstawie faktów WYWNIOSKUJ co może się wydarzyć w przyszłości.\n"
-            "Predykcja może dotyczyć: zagrożeń, szans, trendów, scenariuszy, konsekwencji.\n"
+            "Predykcja może dotyczyć: zagrożeń, szans, trendów, scenariuszy, konsekwencji.\n\n"
+            "WAŻNE: Fakty są posortowane według WAGI (ważności). Fakty z wyższą wagą pochodzą z bardziej "
+            "wiarygodnych/ważnych źródeł i powinny być PRIORYTETYZOWANE w analizie. Nadaj większą wagę "
+            "predykcjom opartym na faktach o wysokiej wadze.\n\n"
             "MUSISZ wygenerować co najmniej 3-5 predykcji. Bądź kreatywny ale logiczny.\n"
             "Zwróć tablicę JSON: [{\"prediction\": \"tekst\", \"source_fact_ids\": [0, 1]}]"
         )
 
     def _build_sourced_prompt(self, text: str, language: str, facts_list: List[Dict]) -> str:
-        facts_str = "\n".join([f"[{i}] {f.get('fact', f.get('value', ''))}" for i, f in enumerate(facts_list)])
+        def format_fact(i: int, f: Dict) -> str:
+            wage = f.get('wage')
+            wage_str = f" (wage: {wage})" if wage is not None else ""
+            return f"[{i}]{wage_str} {f.get('fact', f.get('value', ''))}"
 
-        print(f"[PREDICTION_PROMPT] Facts count: {len(facts_list)}", flush=True)
+        facts_str = "\n".join([format_fact(i, f) for i, f in enumerate(facts_list)])
+
+        print(f"[PREDICTION_PROMPT] Facts count: {len(facts_list)}, sorted by wage", flush=True)
         print(f"[PREDICTION_PROMPT] Text length: {len(text)}", flush=True)
 
         if language == 'en':
             return (
-                f"KNOWN FACTS about the situation (use indices 0-{len(facts_list)-1}):\n{facts_str}\n\n"
+                f"KNOWN FACTS about the situation (sorted by WAGE - higher = more important, use indices 0-{len(facts_list)-1}):\n{facts_str}\n\n"
                 f"ADDITIONAL CONTEXT:\n{text[:8000]}\n\n"
                 "Based on the facts above, GENERATE predictions about what could happen to Atlantis.\n"
+                "PRIORITIZE facts with higher wage values - they come from more reliable sources.\n"
                 "Think about: political consequences, economic impacts, security threats, opportunities.\n"
                 "For each prediction, reference the fact indices that support it.\n"
                 "Generate 3-5 diverse predictions covering different aspects.\n"
@@ -256,15 +280,47 @@ class PredictionService:
                 "[{\"prediction\": \"specific future event or trend\", \"source_fact_ids\": [0, 2]}]"
             )
         return (
-            f"ZNANE FAKTY dotyczące sytuacji (użyj indeksów 0-{len(facts_list)-1}):\n{facts_str}\n\n"
+            f"ZNANE FAKTY dotyczące sytuacji (posortowane wg WAGI - wyższa = ważniejsza, użyj indeksów 0-{len(facts_list)-1}):\n{facts_str}\n\n"
             f"DODATKOWY KONTEKST:\n{text[:8000]}\n\n"
             "Na podstawie faktów WYGENERUJ predykcje o tym co może się wydarzyć dla Atlantis.\n"
+            "PRIORYTETYZUJ fakty o wyższej wadze - pochodzą z bardziej wiarygodnych źródeł.\n"
             "Pomyśl o: konsekwencjach politycznych, wpływie ekonomicznym, zagrożeniach, szansach.\n"
             "Dla każdej predykcji podaj indeksy faktów źródłowych.\n"
             "Wygeneruj 3-5 różnorodnych predykcji obejmujących różne aspekty.\n"
             "ODPOWIEDZ TYLKO TABLICĄ JSON:\n"
             "[{\"prediction\": \"konkretne przyszłe wydarzenie lub trend\", \"source_fact_ids\": [0, 2]}]"
         )
+
+    def _repair_json(self, json_str: str) -> str:
+        """Attempt to repair malformed JSON from LLM."""
+        # Remove any markdown code blocks
+        json_str = re.sub(r'^```json\s*', '', json_str)
+        json_str = re.sub(r'^```\s*', '', json_str)
+        json_str = re.sub(r'\s*```$', '', json_str)
+
+        # Fix common issues: unescaped quotes inside strings
+        # Replace smart quotes with regular quotes
+        json_str = json_str.replace('"', '"').replace('"', '"')
+        json_str = json_str.replace(''', "'").replace(''', "'")
+
+        # Try to fix unescaped quotes in string values
+        # Pattern: find "prediction": "...", and escape internal quotes
+        def fix_string_value(match):
+            key = match.group(1)
+            value = match.group(2)
+            # Escape unescaped quotes within value (not at boundaries)
+            fixed_value = value.replace('\\"', '__ESCAPED_QUOTE__')
+            fixed_value = fixed_value.replace('"', '\\"')
+            fixed_value = fixed_value.replace('__ESCAPED_QUOTE__', '\\"')
+            return f'"{key}": "{fixed_value}"'
+
+        # Handle trailing commas before ] or }
+        json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+
+        # Remove control characters that break JSON
+        json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', json_str)
+
+        return json_str
 
     def _parse_sourced_predictions(self, response_text: str, facts_list: List[Dict]) -> List[Dict]:
         print(f"[PREDICTION_PARSING] Parsing sourced response: {response_text[:500]}...", flush=True)
@@ -278,35 +334,77 @@ class PredictionService:
         json_str = json_match.group()
         print(f"[PREDICTION_PARSING] Found JSON: {json_str[:200]}...", flush=True)
 
+        # Try direct parse first
         try:
             predictions_data = json.loads(json_str)
-            if not isinstance(predictions_data, list):
-                print(f"[PREDICTION_PARSING] Parsed JSON is not a list", flush=True)
-                return []
-
-            results = []
-            for item in predictions_data:
-                if not isinstance(item, dict):
-                    continue
-                pred_text = item.get('prediction', '')
-                source_ids = item.get('source_fact_ids', [])
-
-                if not pred_text or len(pred_text.strip()) < 10:
-                    continue
-
-                valid_sources = []
-                for idx in source_ids:
-                    if isinstance(idx, int) and 0 <= idx < len(facts_list):
-                        valid_sources.append(facts_list[idx])
-
-                results.append({
-                    'prediction': pred_text.strip(),
-                    'source_facts': valid_sources
-                })
-
-            print(f"[PREDICTION_PARSING] Extracted {len(results)} predictions with sources", flush=True)
-            return results
         except json.JSONDecodeError as e:
-            print(f"[PREDICTION_PARSING] JSON parse error: {e}, raw: {json_str[:100]}")
+            print(f"[PREDICTION_PARSING] Initial JSON parse failed: {e}", flush=True)
+            # Try repair
+            repaired = self._repair_json(json_str)
+            try:
+                predictions_data = json.loads(repaired)
+                print(f"[PREDICTION_PARSING] Repaired JSON parsed successfully", flush=True)
+            except json.JSONDecodeError as e2:
+                print(f"[PREDICTION_PARSING] Repair failed: {e2}", flush=True)
+                # Last resort: try to extract predictions manually
+                return self._extract_predictions_fallback(response_text, facts_list)
+
+        if not isinstance(predictions_data, list):
+            print(f"[PREDICTION_PARSING] Parsed JSON is not a list", flush=True)
             return []
+
+        results = []
+        for item in predictions_data:
+            if not isinstance(item, dict):
+                continue
+            pred_text = item.get('prediction', '')
+            source_ids = item.get('source_fact_ids', [])
+
+            if not pred_text or len(pred_text.strip()) < 10:
+                continue
+
+            valid_sources = []
+            for idx in source_ids:
+                if isinstance(idx, int) and 0 <= idx < len(facts_list):
+                    valid_sources.append(facts_list[idx])
+
+            results.append({
+                'prediction': pred_text.strip(),
+                'source_facts': valid_sources
+            })
+
+        print(f"[PREDICTION_PARSING] Extracted {len(results)} predictions with sources", flush=True)
+        return results
+
+    def _extract_predictions_fallback(self, response_text: str, facts_list: List[Dict]) -> List[Dict]:
+        """Fallback extraction when JSON parsing completely fails."""
+        print(f"[PREDICTION_PARSING] Using fallback extraction", flush=True)
+        results = []
+
+        # Try to extract predictions from "prediction": "..." patterns
+        pred_matches = re.findall(r'"prediction"\s*:\s*"([^"]+(?:\\"[^"]*)*)"', response_text)
+        source_matches = re.findall(r'"source_fact_ids"\s*:\s*\[([^\]]*)\]', response_text)
+
+        for i, pred in enumerate(pred_matches):
+            pred_text = pred.replace('\\"', '"').strip()
+            if len(pred_text) < 10:
+                continue
+
+            valid_sources = []
+            if i < len(source_matches):
+                try:
+                    ids = [int(x.strip()) for x in source_matches[i].split(',') if x.strip().isdigit()]
+                    for idx in ids:
+                        if 0 <= idx < len(facts_list):
+                            valid_sources.append(facts_list[idx])
+                except:
+                    pass
+
+            results.append({
+                'prediction': pred_text,
+                'source_facts': valid_sources
+            })
+
+        print(f"[PREDICTION_PARSING] Fallback extracted {len(results)} predictions", flush=True)
+        return results
 

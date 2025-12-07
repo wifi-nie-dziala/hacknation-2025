@@ -6,8 +6,7 @@ export default function CreateAnalysisForm() {
   const navigate = useNavigate();
   const [analysisName, setAnalysisName] = useState('');
   const [country, setCountry] = useState('Atlantis');
-  const [timeHorizon12, setTimeHorizon12] = useState(true);
-  const [timeHorizon36, setTimeHorizon36] = useState(false);
+  const [timeHorizon, setTimeHorizon] = useState('12'); // '12' or '36'
   const [positiveScenario, setPositiveScenario] = useState(true);
   const [negativeScenario, setNegativeScenario] = useState(true);
   const [sourceScope, setSourceScope] = useState('added');
@@ -35,10 +34,6 @@ export default function CreateAnalysisForm() {
   };
 
   const handleRunAnalysis = async () => {
-    if (!timeHorizon12 && !timeHorizon36) {
-      alert('Wybierz co najmniej jeden horyzont czasowy');
-      return;
-    }
     if (!positiveScenario && !negativeScenario) {
       alert('Wybierz co najmniej jeden wariant scenariusza');
       return;
@@ -81,7 +76,8 @@ export default function CreateAnalysisForm() {
             enable_scraping: true,
             enable_fact_extraction: true,
             enable_validation: true,
-            language: 'en'
+            language: 'en',
+            time_horizon: timeHorizon === '12' ? '1 year' : '3 years'
           }
         })
       });
@@ -203,16 +199,13 @@ export default function CreateAnalysisForm() {
             <div className="space-y-2">
               <label className="block text-sm font-medium text-gray-700">
                 Horyzont czasowy
-                {!timeHorizon12 && !timeHorizon36 && (
-                  <span className="text-red-600 text-xs ml-2">Wybierz co najmniej jedną opcję</span>
-                )}
               </label>
               <div className="flex gap-2">
                 <button
                   type="button"
-                  onClick={() => setTimeHorizon12(!timeHorizon12)}
+                  onClick={() => setTimeHorizon('12')}
                   className={`px-6 py-2 rounded-md border transition-colors ${
-                    timeHorizon12
+                    timeHorizon === '12'
                       ? 'bg-blue-50 border-blue-600 text-blue-700'
                       : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}
@@ -221,9 +214,9 @@ export default function CreateAnalysisForm() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setTimeHorizon36(!timeHorizon36)}
+                  onClick={() => setTimeHorizon('36')}
                   className={`px-6 py-2 rounded-md border transition-colors ${
-                    timeHorizon36
+                    timeHorizon === '36'
                       ? 'bg-blue-50 border-blue-600 text-blue-700'
                       : 'bg-white border-gray-300 text-gray-700 hover:bg-gray-50'
                   }`}

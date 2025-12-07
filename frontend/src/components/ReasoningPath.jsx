@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
-import { ArrowLeft, Download, Info } from 'lucide-react';
-import ReactFlow, { 
+import { ArrowLeft, X } from 'lucide-react';
+import ReactFlow, {
   Background, 
   Controls, 
   MiniMap,
@@ -17,7 +17,9 @@ export default function ReasoningPath() {
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'diagram'
   const [jobData, setJobData] = useState(null);
   const [loading, setLoading] = useState(true);
-  
+  const [hoveredNode, setHoveredNode] = useState(null);
+  const [popupPosition, setPopupPosition] = useState({ x: 0, y: 0 });
+
   // ReactFlow state
   const [nodes, setNodes, onNodesChange] = useNodesState([]);
   const [edges, setEdges, onEdgesChange] = useEdgesState([]);
@@ -114,6 +116,32 @@ export default function ReasoningPath() {
     setNodes(newNodes);
     setEdges(newEdges);
   };
+
+  const onNodeMouseEnter = useCallback((event, node) => {
+    const rect = event.target.getBoundingClientRect();
+    setPopupPosition({ x: rect.right + 10, y: rect.top });
+    setHoveredNode(node);
+  }, []);
+
+  const onNodeMouseLeave = useCallback(() => {
+    setHoveredNode(null);
+  }, []);
+
+  const getNodeRelations = useCallback((nodeId) => {
+    if (!jobData?.node_relations || !jobData?.nodes) return [];
+    return jobData.node_relations
+      .filter(rel => rel.source_node_id === nodeId || rel.target_node_id === nodeId)
+      .map(rel => {
+        const relatedNodeId = rel.source_node_id === nodeId ? rel.target_node_id : rel.source_node_id;
+        const relatedNode = jobData.nodes.find(n => n.id === relatedNodeId);
+        const direction = rel.source_node_id === nodeId ? 'outgoing' : 'incoming';
+        return { ...rel, relatedNode, direction };
+      });
+  }, [jobData]);
+
+  const getOriginalNode = useCallback((nodeId) => {
+    return jobData?.nodes?.find(n => n.id === nodeId);
+  }, [jobData]);
 
   if (loading) {
     return <div className="p-12 text-center">Ładowanie...</div>;
@@ -257,18 +285,119 @@ export default function ReasoningPath() {
         </div>
       ) : (
         /* Diagram View */
-        <div className="bg-white rounded-xl shadow-sm border border-[#0F2743]/10 h-[800px]">
+        <div className="bg-white rounded-xl shadow-sm border border-[#0F2743]/10 h-[800px] relative">
           <ReactFlow
             nodes={nodes}
             edges={edges}
             onNodesChange={onNodesChange}
             onEdgesChange={onEdgesChange}
+            onNodeMouseEnter={onNodeMouseEnter}
+            onNodeMouseLeave={onNodeMouseLeave}
             fitView
           >
             <Background />
             <Controls />
             <MiniMap />
           </ReactFlow>
+
+          {/* Node Details Popup */}
+          {hoveredNode && (() => {
+            const originalNode = getOriginalNode(hoveredNode.id);
+            const relations = getNodeRelations(hoveredNode.id);
+
+            return (
+              <div
+                className="fixed z-50 bg-white rounded-xl shadow-2xl border border-[#0F2743]/20 p-5 w-[400px] max-h-[500px] overflow-y-auto"
+                style={{
+                  left: Math.min(popupPosition.x, window.innerWidth - 420),
+                  top: Math.min(popupPosition.y, window.innerHeight - 520)
+                }}
+                onMouseEnter={() => setHoveredNode(hoveredNode)}
+                onMouseLeave={() => setHoveredNode(null)}
+              >
+                <div className="flex justify-between items-start mb-4">
+                  <div>
+                    <span className={`px-2 py-1 text-xs font-bold uppercase rounded ${
+                      originalNode?.type === 'fact' ? 'bg-amber-100 text-amber-700' :
+                      originalNode?.type === 'prediction' ? 'bg-emerald-100 text-emerald-700' :
+                      originalNode?.type === 'missing_information' ? 'bg-red-100 text-red-700' :
+                      'bg-gray-100 text-gray-700'
+                    }`}>
+                      {originalNode?.type || 'Unknown'}
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => setHoveredNode(null)}
+                    className="text-gray-400 hover:text-gray-600"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                </div>
+
+                <h3 className="text-[#0F2743] font-bold mb-3">{originalNode?.value}</h3>
+
+                {originalNode?.metadata && (
+                  <div className="flex flex-wrap gap-2 mb-4">
+                    {originalNode.metadata.category && (
+                      <span className="px-2 py-1 bg-gray-100 text-gray-600 text-xs rounded">
+                        {originalNode.metadata.category}
+                      </span>
+                    )}
+                    {originalNode.metadata.confidence_level && (
+                      <span className="px-2 py-1 bg-blue-100 text-blue-600 text-xs rounded">
+                        Pewność: {originalNode.metadata.confidence_level}
+                      </span>
+                    )}
+                    {originalNode.metadata.period && (
+                      <span className="px-2 py-1 bg-purple-100 text-purple-600 text-xs rounded">
+                        {originalNode.metadata.period}
+                      </span>
+                    )}
+                  </div>
+                )}
+
+                {relations.length > 0 && (
+                  <>
+                    <div className="border-t border-gray-200 my-4" />
+                    <h4 className="text-sm font-bold text-[#0F2743] mb-3">
+                      Relacje ({relations.length})
+                    </h4>
+                    <div className="space-y-3">
+                      {relations.map((rel, idx) => (
+                        <div key={idx} className="bg-gray-50 rounded-lg p-3 border border-gray-100">
+                          <div className="flex items-center gap-2 mb-2">
+                            <span className={`text-xs ${rel.direction === 'outgoing' ? 'text-green-600' : 'text-blue-600'}`}>
+                              {rel.direction === 'outgoing' ? '→' : '←'}
+                            </span>
+                            <span className="px-2 py-0.5 bg-[#0F2743] text-white text-xs rounded font-medium">
+                              {rel.relation_type}
+                            </span>
+                          </div>
+                          <div className="text-sm text-[#0F2743]">
+                            <span className={`inline-block px-1.5 py-0.5 text-xs rounded mr-2 ${
+                              rel.relatedNode?.type === 'fact' ? 'bg-amber-100 text-amber-700' :
+                              rel.relatedNode?.type === 'prediction' ? 'bg-emerald-100 text-emerald-700' :
+                              rel.relatedNode?.type === 'missing_information' ? 'bg-red-100 text-red-700' :
+                              'bg-gray-100 text-gray-700'
+                            }`}>
+                              {rel.relatedNode?.type}
+                            </span>
+                            <span className="text-gray-700">
+                              {rel.relatedNode?.value}
+                            </span>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </>
+                )}
+
+                {relations.length === 0 && (
+                  <p className="text-gray-500 text-sm italic">Brak relacji dla tego węzła.</p>
+                )}
+              </div>
+            );
+          })()}
         </div>
       )}
     </div>

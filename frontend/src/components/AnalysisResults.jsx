@@ -156,7 +156,31 @@ export default function AnalysisResults() {
               <h3 className="text-[#0F2743] font-semibold mb-2 flex items-center gap-2">
                 <span className="text-blue-600">💡</span> Rekomendacje
               </h3>
-              <p className="text-[#0F2743]/80 bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">{jobData.report.recommendations}</p>
+              {Array.isArray(jobData.report.recommendations) ? (
+                <div className="space-y-3">
+                  {jobData.report.recommendations.map((rec, idx) => (
+                    <div key={idx} className="bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">
+                      <div className="flex items-start justify-between mb-2">
+                        <span className="font-semibold text-[#0F2743]">{rec.action}</span>
+                        <span className={`px-2 py-1 text-xs rounded ${
+                          rec.priority === 'wysoki' || rec.priority === 'high' ? 'bg-red-100 text-red-700' :
+                          rec.priority === 'średni' || rec.priority === 'medium' ? 'bg-yellow-100 text-yellow-700' :
+                          'bg-green-100 text-green-700'
+                        }`}>
+                          {rec.priority}
+                        </span>
+                      </div>
+                      <div className="text-sm text-[#0F2743]/70 space-y-1">
+                        {rec.responsible_entity && <p><strong>Odpowiedzialny:</strong> {rec.responsible_entity}</p>}
+                        {rec.timeline && <p><strong>Termin:</strong> {rec.timeline}</p>}
+                        {rec.expected_outcome && <p><strong>Oczekiwany rezultat:</strong> {rec.expected_outcome}</p>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-[#0F2743]/80 bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">{jobData.report.recommendations}</p>
+              )}
             </div>
           )}
 
