@@ -80,7 +80,7 @@ class ProcessingService:
             
             # Step 3: Prediction Extraction
             self._extract_predictions(job_uuid, items, language, step_number)
-            step_number += 1
+            # step_number += 1
             
             # Step 4: Unknown Extraction
             self._extract_unknowns(job_uuid, items, language, step_number)
