@@ -291,6 +291,37 @@ class PredictionService:
             "[{\"prediction\": \"konkretne przyszłe wydarzenie lub trend\", \"source_fact_ids\": [0, 2]}]"
         )
 
+    def _repair_json(self, json_str: str) -> str:
+        """Attempt to repair malformed JSON from LLM."""
+        # Remove any markdown code blocks
+        json_str = re.sub(r'^```json\s*', '', json_str)
+        json_str = re.sub(r'^```\s*', '', json_str)
+        json_str = re.sub(r'\s*```$', '', json_str)
+
+        # Fix common issues: unescaped quotes inside strings
+        # Replace smart quotes with regular quotes
+        json_str = json_str.replace('"', '"').replace('"', '"')
+        json_str = json_str.replace(''', "'").replace(''', "'")
+
+        # Try to fix unescaped quotes in string values
+        # Pattern: find "prediction": "...", and escape internal quotes
+        def fix_string_value(match):
+            key = match.group(1)
+            value = match.group(2)
+            # Escape unescaped quotes within value (not at boundaries)
+            fixed_value = value.replace('\\"', '__ESCAPED_QUOTE__')
+            fixed_value = fixed_value.replace('"', '\\"')
+            fixed_value = fixed_value.replace('__ESCAPED_QUOTE__', '\\"')
+            return f'"{key}": "{fixed_value}"'
+
+        # Handle trailing commas before ] or }
+        json_str = re.sub(r',\s*([}\]])', r'\1', json_str)
+
+        # Remove control characters that break JSON
+        json_str = re.sub(r'[\x00-\x1f\x7f-\x9f]', ' ', json_str)
+
+        return json_str
+
     def _parse_sourced_predictions(self, response_text: str, facts_list: List[Dict]) -> List[Dict]:
         print(f"[PREDICTION_PARSING] Parsing sourced response: {response_text[:500]}...", flush=True)
 
@@ -303,35 +334,77 @@ class PredictionService:
         json_str = json_match.group()
         print(f"[PREDICTION_PARSING] Found JSON: {json_str[:200]}...", flush=True)
 
+        # Try direct parse first
         try:
             predictions_data = json.loads(json_str)
-            if not isinstance(predictions_data, list):
-                print(f"[PREDICTION_PARSING] Parsed JSON is not a list", flush=True)
-                return []
-
-            results = []
-            for item in predictions_data:
-                if not isinstance(item, dict):
-                    continue
-                pred_text = item.get('prediction', '')
-                source_ids = item.get('source_fact_ids', [])
-
-                if not pred_text or len(pred_text.strip()) < 10:
-                    continue
-
-                valid_sources = []
-                for idx in source_ids:
-                    if isinstance(idx, int) and 0 <= idx < len(facts_list):
-                        valid_sources.append(facts_list[idx])
-
-                results.append({
-                    'prediction': pred_text.strip(),
-                    'source_facts': valid_sources
-                })
-
-            print(f"[PREDICTION_PARSING] Extracted {len(results)} predictions with sources", flush=True)
-            return results
         except json.JSONDecodeError as e:
-            print(f"[PREDICTION_PARSING] JSON parse error: {e}, raw: {json_str[:100]}")
+            print(f"[PREDICTION_PARSING] Initial JSON parse failed: {e}", flush=True)
+            # Try repair
+            repaired = self._repair_json(json_str)
+            try:
+                predictions_data = json.loads(repaired)
+                print(f"[PREDICTION_PARSING] Repaired JSON parsed successfully", flush=True)
+            except json.JSONDecodeError as e2:
+                print(f"[PREDICTION_PARSING] Repair failed: {e2}", flush=True)
+                # Last resort: try to extract predictions manually
+                return self._extract_predictions_fallback(response_text, facts_list)
+
+        if not isinstance(predictions_data, list):
+            print(f"[PREDICTION_PARSING] Parsed JSON is not a list", flush=True)
             return []
+
+        results = []
+        for item in predictions_data:
+            if not isinstance(item, dict):
+                continue
+            pred_text = item.get('prediction', '')
+            source_ids = item.get('source_fact_ids', [])
+
+            if not pred_text or len(pred_text.strip()) < 10:
+                continue
+
+            valid_sources = []
+            for idx in source_ids:
+                if isinstance(idx, int) and 0 <= idx < len(facts_list):
+                    valid_sources.append(facts_list[idx])
+
+            results.append({
+                'prediction': pred_text.strip(),
+                'source_facts': valid_sources
+            })
+
+        print(f"[PREDICTION_PARSING] Extracted {len(results)} predictions with sources", flush=True)
+        return results
+
+    def _extract_predictions_fallback(self, response_text: str, facts_list: List[Dict]) -> List[Dict]:
+        """Fallback extraction when JSON parsing completely fails."""
+        print(f"[PREDICTION_PARSING] Using fallback extraction", flush=True)
+        results = []
+
+        # Try to extract predictions from "prediction": "..." patterns
+        pred_matches = re.findall(r'"prediction"\s*:\s*"([^"]+(?:\\"[^"]*)*)"', response_text)
+        source_matches = re.findall(r'"source_fact_ids"\s*:\s*\[([^\]]*)\]', response_text)
+
+        for i, pred in enumerate(pred_matches):
+            pred_text = pred.replace('\\"', '"').strip()
+            if len(pred_text) < 10:
+                continue
+
+            valid_sources = []
+            if i < len(source_matches):
+                try:
+                    ids = [int(x.strip()) for x in source_matches[i].split(',') if x.strip().isdigit()]
+                    for idx in ids:
+                        if 0 <= idx < len(facts_list):
+                            valid_sources.append(facts_list[idx])
+                except:
+                    pass
+
+            results.append({
+                'prediction': pred_text,
+                'source_facts': valid_sources
+            })
+
+        print(f"[PREDICTION_PARSING] Fallback extracted {len(results)} predictions", flush=True)
+        return results
 
