@@ -222,32 +222,43 @@ class PredictionService:
         if language == 'en':
             return (
                 f"You are an expert analyst for Atlantis. {ATLANTIS_CONTEXT}\n\n"
-                "Extract predictions and identify which facts they are derived from.\n"
-                "Return JSON array with format: [{\"prediction\": \"...\", \"source_fact_ids\": [0, 1]}]\n"
-                "source_fact_ids are indices from the provided facts list."
+                "Your task: Extract predictions/forecasts from the text and link them to supporting facts.\n"
+                "A prediction is any statement about future events, trends, or outcomes.\n"
+                "You MUST return a JSON array. If no predictions, return empty array [].\n"
+                "Format: [{\"prediction\": \"prediction text\", \"source_fact_ids\": [0, 1]}]\n"
+                "source_fact_ids are the indices of facts that support this prediction."
             )
         return (
             f"Jesteś ekspertem analitykiem dla Atlantis. {ATLANTIS_CONTEXT}\n\n"
-            "Wyodrębnij predykcje i wskaż, z których faktów zostały wyprowadzone.\n"
-            "Zwróć tablicę JSON: [{\"prediction\": \"...\", \"source_fact_ids\": [0, 1]}]\n"
-            "source_fact_ids to indeksy z podanej listy faktów."
+            "Zadanie: Wyodrębnij predykcje/prognozy z tekstu i połącz je z faktami.\n"
+            "Predykcja to stwierdzenie o przyszłych wydarzeniach lub trendach.\n"
+            "MUSISZ zwrócić tablicę JSON. Jeśli brak predykcji, zwróć [].\n"
+            "Format: [{\"prediction\": \"tekst\", \"source_fact_ids\": [0, 1]}]"
         )
 
     def _build_sourced_prompt(self, text: str, language: str, facts_list: List[Dict]) -> str:
         facts_str = "\n".join([f"[{i}] {f.get('fact', f.get('value', ''))}" for i, f in enumerate(facts_list)])
 
+        print(f"[PREDICTION_PROMPT] Facts count: {len(facts_list)}", flush=True)
+        print(f"[PREDICTION_PROMPT] Text length: {len(text)}", flush=True)
+
         if language == 'en':
             return (
-                f"KNOWN FACTS:\n{facts_str}\n\n"
+                f"KNOWN FACTS (use indices 0-{len(facts_list)-1}):\n{facts_str}\n\n"
                 f"TEXT TO ANALYZE:\n{text[:8000]}\n\n"
-                "Extract predictions relevant to Atlantis. For each prediction, list the fact indices it was derived from.\n"
-                "Return ONLY valid JSON: [{\"prediction\": \"text\", \"source_fact_ids\": [indices]}]"
+                "Based on the text and facts above, extract predictions about future events relevant to Atlantis.\n"
+                "For each prediction, specify which fact indices (0, 1, 2, etc.) support it.\n"
+                "If fact is not directly related, use empty array for source_fact_ids.\n"
+                "RESPOND WITH ONLY JSON, no other text:\n"
+                "[{\"prediction\": \"description of future event\", \"source_fact_ids\": [0]}]"
             )
         return (
-            f"ZNANE FAKTY:\n{facts_str}\n\n"
+            f"ZNANE FAKTY (użyj indeksów 0-{len(facts_list)-1}):\n{facts_str}\n\n"
             f"TEKST DO ANALIZY:\n{text[:8000]}\n\n"
-            "Wyodrębnij predykcje dla Atlantis. Dla każdej podaj indeksy faktów źródłowych.\n"
-            "Zwróć TYLKO poprawny JSON: [{\"prediction\": \"tekst\", \"source_fact_ids\": [indeksy]}]"
+            "Na podstawie tekstu wyodrębnij predykcje dotyczące przyszłych wydarzeń dla Atlantis.\n"
+            "Dla każdej predykcji podaj indeksy faktów źródłowych.\n"
+            "ODPOWIEDZ TYLKO JSON:\n"
+            "[{\"prediction\": \"opis przyszłego wydarzenia\", \"source_fact_ids\": [0]}]"
         )
 
     def _parse_sourced_predictions(self, response_text: str, facts_list: List[Dict]) -> List[Dict]:
