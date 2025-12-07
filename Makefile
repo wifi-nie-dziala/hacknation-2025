@@ -1,4 +1,4 @@
-.PHONY: help build up down logs clean restart status health db-reset
+.PHONY: help build up down logs clean restart status health db-reset full-reset
 
 help: ## Show this help message
 	@echo 'Usage: make [target]'
@@ -82,3 +82,22 @@ rebuild: ## Rebuild and restart all services
 	docker-compose down
 	docker-compose build --no-cache
 	docker-compose up -d
+
+full-reset: ## Full reset - rebuild FE/BE and reset database
+	@echo "=== FULL RESET ==="
+	@echo "Stopping all services..."
+	docker-compose down
+	@echo "Rebuilding backend and frontend..."
+	docker-compose build --no-cache backend frontend
+	@echo "Starting database..."
+	docker-compose up -d database
+	@echo "Waiting for database to be ready..."
+	sleep 5
+	@echo "Applying init.sql..."
+	docker-compose exec -T database psql -U postgres -c "DROP DATABASE IF EXISTS hacknation;" || true
+	docker-compose exec -T database psql -U postgres -c "CREATE DATABASE hacknation;"
+	docker-compose exec -T database psql -U postgres -d hacknation -f /docker-entrypoint-initdb.d/init.sql
+	@echo "Starting all services..."
+	docker-compose up -d
+	@echo "=== FULL RESET COMPLETE ==="
+
