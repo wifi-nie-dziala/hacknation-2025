@@ -180,8 +180,12 @@ class ProcessingService:
         self.step_service.update_step(step_id, 'processing')
 
         facts_data = self.fact_storage_service.get_extracted_facts(job_uuid, validated_only=False)
-        facts_context = "\n".join([f"- {f['fact']}" for f in facts_data[:30]])
-        print(f"[STEP {step_number}] Using {len(facts_data[:30])} facts as context", flush=True)
+
+        fact_nodes = self.node_repository.get_nodes_by_job(job_uuid, 'fact')
+        # Map by the fact text (node's 'value' field)
+        fact_node_map = {f['value'][:100]: f for f in fact_nodes}
+
+        print(f"[STEP {step_number}] Using {len(facts_data[:30])} facts as context, {len(fact_nodes)} fact nodes available", flush=True)
 
         all_content = []
         for item in items:
@@ -191,23 +195,44 @@ class ProcessingService:
 
         combined_content = "\n\n---\n\n".join(all_content)
 
-        predictions = self.prediction_service.extract_predictions(combined_content, language, facts_context)
+        predictions_with_sources = self.prediction_service.extract_predictions_with_sources(
+            combined_content, language, facts_data[:30]
+        )
 
-        if not predictions:
+        if not predictions_with_sources:
             print(f"[STEP {step_number}] No predictions extracted, skipping node creation", flush=True)
 
-        for pred in predictions[:30]:
-            if pred and len(pred.strip()) > 10:
-                self.node_repository.create_node(
-                    'prediction', pred, job_uuid,
-                    {'source': 'prediction_extraction', 'language': language}
+        prediction_count = 0
+        relation_count = 0
+        for pred_data in predictions_with_sources[:30]:
+            pred_text = pred_data.get('prediction', '')
+            source_facts = pred_data.get('source_facts', [])
+
+            if pred_text and len(pred_text.strip()) > 10:
+                pred_node_id = self.node_repository.create_node(
+                    'prediction', pred_text, job_uuid,
+                    {'source': 'prediction_extraction', 'language': language, 'source_count': len(source_facts)}
                 )
+                prediction_count += 1
+
+                for src_fact in source_facts:
+                    # src_fact comes from facts_data which has 'fact' key
+                    fact_text = src_fact.get('fact', '')[:100]
+                    if fact_text in fact_node_map:
+                        fact_node = fact_node_map[fact_text]
+                        self.node_repository.create_relation(
+                            pred_node_id, str(fact_node['id']), 'derived_from', 0.8
+                        )
+                        relation_count += 1
+                        print(f"[RELATION] Created derived_from: prediction -> fact", flush=True)
+                    else:
+                        print(f"[RELATION] No matching fact node for: {fact_text[:50]}...", flush=True)
 
         self.step_service.update_step(
             step_id, 'completed',
-            {'predictions_extracted': len(predictions[:30])}
+            {'predictions_extracted': prediction_count, 'relations_created': relation_count}
         )
-        print(f"[STEP {step_number}] Completed prediction extraction: {len(predictions[:30])} predictions", flush=True)
+        print(f"[STEP {step_number}] Completed prediction extraction: {prediction_count} predictions, {relation_count} relations", flush=True)
 
     def _extract_unknowns(self, job_uuid: str, items: list, language: str, step_number: int):
         """Extract unknowns with context from extracted facts."""
