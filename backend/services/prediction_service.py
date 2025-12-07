@@ -221,19 +221,21 @@ class PredictionService:
     def _get_sourced_system_prompt(self, language: str) -> str:
         if language == 'en':
             return (
-                f"You are an expert analyst for Atlantis. {ATLANTIS_CONTEXT}\n\n"
-                "Your task: Extract predictions/forecasts from the text and link them to supporting facts.\n"
-                "A prediction is any statement about future events, trends, or outcomes.\n"
-                "You MUST return a JSON array. If no predictions, return empty array [].\n"
-                "Format: [{\"prediction\": \"prediction text\", \"source_fact_ids\": [0, 1]}]\n"
+                f"You are an expert strategic analyst for Atlantis. {ATLANTIS_CONTEXT}\n\n"
+                "Your task: Generate predictions/forecasts about future events that could affect Atlantis.\n"
+                "Based on the facts provided, INFER what might happen in the future.\n"
+                "A prediction can be: potential threats, opportunities, trends, scenarios, consequences.\n"
+                "You MUST generate at least 3-5 predictions. Be creative but logical.\n"
+                "Return a JSON array: [{\"prediction\": \"prediction text\", \"source_fact_ids\": [0, 1]}]\n"
                 "source_fact_ids are the indices of facts that support this prediction."
             )
         return (
-            f"Jesteś ekspertem analitykiem dla Atlantis. {ATLANTIS_CONTEXT}\n\n"
-            "Zadanie: Wyodrębnij predykcje/prognozy z tekstu i połącz je z faktami.\n"
-            "Predykcja to stwierdzenie o przyszłych wydarzeniach lub trendach.\n"
-            "MUSISZ zwrócić tablicę JSON. Jeśli brak predykcji, zwróć [].\n"
-            "Format: [{\"prediction\": \"tekst\", \"source_fact_ids\": [0, 1]}]"
+            f"Jesteś ekspertem analitykiem strategicznym dla Atlantis. {ATLANTIS_CONTEXT}\n\n"
+            "Zadanie: Wygeneruj predykcje/prognozy dotyczące przyszłych wydarzeń dla Atlantis.\n"
+            "Na podstawie faktów WYWNIOSKUJ co może się wydarzyć w przyszłości.\n"
+            "Predykcja może dotyczyć: zagrożeń, szans, trendów, scenariuszy, konsekwencji.\n"
+            "MUSISZ wygenerować co najmniej 3-5 predykcji. Bądź kreatywny ale logiczny.\n"
+            "Zwróć tablicę JSON: [{\"prediction\": \"tekst\", \"source_fact_ids\": [0, 1]}]"
         )
 
     def _build_sourced_prompt(self, text: str, language: str, facts_list: List[Dict]) -> str:
@@ -244,21 +246,24 @@ class PredictionService:
 
         if language == 'en':
             return (
-                f"KNOWN FACTS (use indices 0-{len(facts_list)-1}):\n{facts_str}\n\n"
-                f"TEXT TO ANALYZE:\n{text[:8000]}\n\n"
-                "Based on the text and facts above, extract predictions about future events relevant to Atlantis.\n"
-                "For each prediction, specify which fact indices (0, 1, 2, etc.) support it.\n"
-                "If fact is not directly related, use empty array for source_fact_ids.\n"
-                "RESPOND WITH ONLY JSON, no other text:\n"
-                "[{\"prediction\": \"description of future event\", \"source_fact_ids\": [0]}]"
+                f"KNOWN FACTS about the situation (use indices 0-{len(facts_list)-1}):\n{facts_str}\n\n"
+                f"ADDITIONAL CONTEXT:\n{text[:8000]}\n\n"
+                "Based on the facts above, GENERATE predictions about what could happen to Atlantis.\n"
+                "Think about: political consequences, economic impacts, security threats, opportunities.\n"
+                "For each prediction, reference the fact indices that support it.\n"
+                "Generate 3-5 diverse predictions covering different aspects.\n"
+                "RESPOND WITH ONLY A JSON ARRAY:\n"
+                "[{\"prediction\": \"specific future event or trend\", \"source_fact_ids\": [0, 2]}]"
             )
         return (
-            f"ZNANE FAKTY (użyj indeksów 0-{len(facts_list)-1}):\n{facts_str}\n\n"
-            f"TEKST DO ANALIZY:\n{text[:8000]}\n\n"
-            "Na podstawie tekstu wyodrębnij predykcje dotyczące przyszłych wydarzeń dla Atlantis.\n"
+            f"ZNANE FAKTY dotyczące sytuacji (użyj indeksów 0-{len(facts_list)-1}):\n{facts_str}\n\n"
+            f"DODATKOWY KONTEKST:\n{text[:8000]}\n\n"
+            "Na podstawie faktów WYGENERUJ predykcje o tym co może się wydarzyć dla Atlantis.\n"
+            "Pomyśl o: konsekwencjach politycznych, wpływie ekonomicznym, zagrożeniach, szansach.\n"
             "Dla każdej predykcji podaj indeksy faktów źródłowych.\n"
-            "ODPOWIEDZ TYLKO JSON:\n"
-            "[{\"prediction\": \"opis przyszłego wydarzenia\", \"source_fact_ids\": [0]}]"
+            "Wygeneruj 3-5 różnorodnych predykcji obejmujących różne aspekty.\n"
+            "ODPOWIEDZ TYLKO TABLICĄ JSON:\n"
+            "[{\"prediction\": \"konkretne przyszłe wydarzenie lub trend\", \"source_fact_ids\": [0, 2]}]"
         )
 
     def _parse_sourced_predictions(self, response_text: str, facts_list: List[Dict]) -> List[Dict]:

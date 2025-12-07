@@ -17,6 +17,7 @@ CREATE TABLE IF NOT EXISTS processing_jobs (
     id SERIAL PRIMARY KEY,
     job_uuid UUID DEFAULT gen_random_uuid() UNIQUE NOT NULL,
     status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'processing', 'completed', 'failed')),
+    report JSONB,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     completed_at TIMESTAMP,
@@ -40,7 +41,7 @@ CREATE TABLE IF NOT EXISTS processing_steps (
     id SERIAL PRIMARY KEY,
     job_id INTEGER NOT NULL REFERENCES processing_jobs(id) ON DELETE CASCADE,
     step_number INTEGER NOT NULL,
-    step_type VARCHAR(50) NOT NULL CHECK (step_type IN ('scraping', 'extraction', 'reasoning', 'validation', 'embedding')),
+    step_type VARCHAR(50) NOT NULL CHECK (step_type IN ('scraping', 'extraction', 'reasoning', 'validation', 'embedding', 'report_generation')),
     status VARCHAR(20) NOT NULL CHECK (status IN ('pending', 'processing', 'completed', 'failed', 'skipped')),
     input_data JSONB,
     output_data JSONB,
@@ -94,7 +95,7 @@ CREATE INDEX IF NOT EXISTS scraped_data_job_id_idx ON scraped_data (job_id);
 
 CREATE TABLE IF NOT EXISTS nodes (
     id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
-    type VARCHAR(30) NOT NULL CHECK (type IN ('fact', 'prediction', 'missing_information')),
+    type VARCHAR(30) NOT NULL CHECK (type IN ('fact', 'prediction', 'missing_information', 'report')),
     value TEXT NOT NULL,
     job_id INTEGER REFERENCES processing_jobs(id) ON DELETE CASCADE,
     metadata JSONB,

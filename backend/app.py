@@ -3,6 +3,7 @@ from flask_cors import CORS
 import psycopg2
 from pgvector.psycopg2 import register_vector
 from services.processing_service import ProcessingService
+from services.report_generation_service import ReportGenerationService
 from repositories.node_repository import NodeRepository
 import config
 import threading
@@ -91,6 +92,9 @@ def get_job_details(job_uuid):
                     all_relations.append(rel)
                     seen_relations.add(rel_id)
 
+        # Report is now in job_status directly
+        report = job_status.get('report')
+
         conn.close()
 
         return jsonify({
@@ -98,7 +102,8 @@ def get_job_details(job_uuid):
             'steps': steps,
             'facts': facts,
             'nodes': nodes,
-            'node_relations': all_relations
+            'node_relations': all_relations,
+            'report': report
         }), 200
     except Exception as e:
         return jsonify({'error': str(e)}), 500
@@ -108,7 +113,6 @@ def get_job_details(job_uuid):
 def get_all_jobs():
     try:
         limit = request.args.get('limit', 100, type=int)
-        include_nodes = request.args.get('include_nodes', 'false').lower() == 'true'
 
         conn = get_db_connection()
         processing_service = ProcessingService(conn)
@@ -116,27 +120,27 @@ def get_all_jobs():
 
         jobs = processing_service.get_all_jobs(limit)
 
-        if include_nodes:
-            for job in jobs:
-                job_uuid = job['job_uuid']
-                nodes = node_repo.get_nodes_by_job(job_uuid)
+        for job in jobs:
+            job_uuid = job['job_uuid']
+            nodes = node_repo.get_nodes_by_job(job_uuid)
 
-                job['node_counts'] = {
-                    'fact': sum(1 for n in nodes if n['type'] == 'fact'),
-                    'prediction': sum(1 for n in nodes if n['type'] == 'prediction'),
-                    'missing_information': sum(1 for n in nodes if n['type'] == 'missing_information'),
-                    'total': len(nodes)
-                }
+            job['node_counts'] = {
+                'fact': sum(1 for n in nodes if n['type'] == 'fact'),
+                'prediction': sum(1 for n in nodes if n['type'] == 'prediction'),
+                'missing_information': sum(1 for n in nodes if n['type'] == 'missing_information'),
+                'total': len(nodes)
+            }
 
-                relation_count = 0
-                seen = set()
-                for node in nodes:
-                    rels = node_repo.get_node_relations(str(node['id']), 'both')
-                    for r in rels:
-                        if str(r['id']) not in seen:
-                            seen.add(str(r['id']))
-                            relation_count += 1
-                job['relation_count'] = relation_count
+            relation_count = 0
+            seen = set()
+            for node in nodes:
+                rels = node_repo.get_node_relations(str(node['id']), 'both')
+                for r in rels:
+                    if str(r['id']) not in seen:
+                        seen.add(str(r['id']))
+                        relation_count += 1
+            job['relation_count'] = relation_count
+            # Report is already in job from get_all_jobs
 
         conn.close()
 
@@ -196,6 +200,62 @@ def get_node_relations(node_id):
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/api/jobs/<job_uuid>/report', methods=['GET'])
+def generate_job_report(job_uuid):
+    try:
+        language = request.args.get('language', 'pl')
+        regenerate = request.args.get('regenerate', 'false').lower() == 'true'
+
+        conn = get_db_connection()
+        processing_service = ProcessingService(conn)
+        node_repo = NodeRepository(conn)
+        report_service = ReportGenerationService()
+
+        job_status = processing_service.get_job_status(job_uuid)
+        if not job_status:
+            conn.close()
+            return jsonify({'error': 'Job not found'}), 404
+
+        # Check for cached report in job
+        if not regenerate and job_status.get('report'):
+            conn.close()
+            return jsonify({
+                'job_uuid': job_uuid,
+                'cached': True,
+                'report': job_status['report']
+            }), 200
+
+        nodes = node_repo.get_nodes_by_job(job_uuid)
+        facts = [n for n in nodes if n['type'] == 'fact']
+        predictions = [n for n in nodes if n['type'] == 'prediction']
+        unknowns = [n for n in nodes if n['type'] == 'missing_information']
+
+        all_relations = []
+        seen_relations = set()
+        for node in nodes:
+            relations = node_repo.get_node_relations(str(node['id']), 'both')
+            for rel in relations:
+                rel_id = str(rel['id'])
+                if rel_id not in seen_relations:
+                    all_relations.append(rel)
+                    seen_relations.add(rel_id)
+
+        report = report_service.generate_report(facts, predictions, unknowns, all_relations, language)
+
+        # Save regenerated report to job
+        from repositories.job_repository import JobRepository
+        job_repo = JobRepository(conn)
+        job_repo.save_report(job_uuid, report)
+
+        conn.close()
+
+        return jsonify({
+            'job_uuid': job_uuid,
+            'cached': False,
+            'report': report
+        }), 200
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
 
 
 if __name__ == '__main__':
