@@ -121,6 +121,64 @@ export default function AnalysisResults() {
         </div>
       </div>
 
+      {/* Report Section */}
+      {jobData?.report && (
+        <div className="bg-white rounded-xl shadow-sm border border-[#0F2743]/10 p-8 mb-8">
+          <h2 className="text-[#0F2743] text-xl font-bold mb-6">📊 Raport końcowy</h2>
+          
+          {jobData.report.summary && (
+            <div className="mb-6">
+              <h3 className="text-[#0F2743] font-semibold mb-2">Podsumowanie</h3>
+              <p className="text-[#0F2743]/80 bg-gray-50 p-4 rounded-lg">{jobData.report.summary}</p>
+            </div>
+          )}
+
+          {jobData.report.positive_scenario && (
+            <div className="mb-6">
+              <h3 className="text-[#0F2743] font-semibold mb-2 flex items-center gap-2">
+                <span className="text-green-600">✅</span> Scenariusz pozytywny
+              </h3>
+              <p className="text-[#0F2743]/80 bg-green-50 p-4 rounded-lg border-l-4 border-green-500">{jobData.report.positive_scenario}</p>
+            </div>
+          )}
+
+          {jobData.report.negative_scenario && (
+            <div className="mb-6">
+              <h3 className="text-[#0F2743] font-semibold mb-2 flex items-center gap-2">
+                <span className="text-red-600">⚠️</span> Scenariusz negatywny
+              </h3>
+              <p className="text-[#0F2743]/80 bg-red-50 p-4 rounded-lg border-l-4 border-red-500">{jobData.report.negative_scenario}</p>
+            </div>
+          )}
+
+          {jobData.report.recommendations && (
+            <div className="mb-6">
+              <h3 className="text-[#0F2743] font-semibold mb-2 flex items-center gap-2">
+                <span className="text-blue-600">💡</span> Rekomendacje
+              </h3>
+              <p className="text-[#0F2743]/80 bg-blue-50 p-4 rounded-lg border-l-4 border-blue-500">{jobData.report.recommendations}</p>
+            </div>
+          )}
+
+          {jobData.report.metadata && (
+            <div className="flex gap-4 flex-wrap mt-4 pt-4 border-t border-gray-200">
+              <span className="px-3 py-1 bg-gray-100 rounded text-sm text-[#0F2743]/70">
+                Fakty: {jobData.report.metadata.facts_count || 0}
+              </span>
+              <span className="px-3 py-1 bg-gray-100 rounded text-sm text-[#0F2743]/70">
+                Predykcje: {jobData.report.metadata.predictions_count || 0}
+              </span>
+              <span className="px-3 py-1 bg-gray-100 rounded text-sm text-[#0F2743]/70">
+                Relacje: {jobData.report.metadata.relations_count || 0}
+              </span>
+              <span className="px-3 py-1 bg-gray-100 rounded text-sm text-[#0F2743]/70">
+                Brakujące info: {jobData.report.metadata.unknowns_count || 0}
+              </span>
+            </div>
+          )}
+        </div>
+      )}
+
       <div className="border-t border-[#0F2743]/10 mb-8" />
 
       {/* Helper text */}
